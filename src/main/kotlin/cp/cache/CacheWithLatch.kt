@@ -82,7 +82,6 @@ class CacheWithLatch<K, V>(
     }
 }
 
-
 fun cacheUsageSample() {
     val cache = CacheWithLatch(transform = { key: String -> key.length }, timeout = 2.seconds)
     val value = cache.get("Hello")  // Should call transform("Hello") = 5
