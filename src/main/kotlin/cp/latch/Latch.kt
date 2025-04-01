@@ -54,4 +54,10 @@ class Latch {
             }
         }
     }
+
+    fun isOpen(): Boolean {
+        guard.withLock {
+            return isOpen
+        }
+    }
 }

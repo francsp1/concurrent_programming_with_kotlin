@@ -1,5 +1,3 @@
-package isel.leic.pc.demos.my.Cache
-
 import cp.latch.Latch
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
@@ -15,28 +13,34 @@ private class Holder<K, V>(
 ) {
     private var value: V? = null
     private val latch = Latch()
-    private val isTransformed = AtomicBoolean(false)
+    private val isTransforming = AtomicBoolean(false)
 
-    @Throws(TimeoutException::class, InterruptedException::class)
+    @Throws(TimeoutException::class, InterruptedException::class, Exception::class)
     fun getValue(key: K): V {
-        if (isTransformed.compareAndSet(false, true)) { // If a thread is not already computing value (isComputing == false), start computing and set isComputing to true
-            Thread.sleep(3000) //  Simulate long computation (TODO: remove this line later)
-            value = transform(key)
-            latch.open()
-            println("Holder.getValue: Value computed: latch opened")
-            return value!!
+        if (isTransforming.compareAndSet(false, true)) {
+            Thread.sleep(3000) // Simulate long computation (TODO: remove later)
+            try {
+                value = transform(key) // Transform might fail!
+                latch.open()
+                println("Holder.getValue: Value computed - latch opened")
+            } catch (e: Exception) {
+                isTransforming.set(false) // Reset only if transform failed
+                throw e
+            }
         }
-
         try {
             if (!latch.await(timeout)) {
-                throw TimeoutException("Timeout while waiting for value computation for key: $key")
+                throw TimeoutException("Timeout reached while waiting for value computation for key: $key")
             }
         } catch (ie: InterruptedException) {
             Thread.currentThread().interrupt() // Restore the interrupt flag
             throw ie
         }
-
         return value!!
+    }
+
+    fun isComputed(): Boolean {
+        return latch.isOpen()
     }
 }
 
@@ -47,7 +51,7 @@ class CacheWithLatch<K, V>(
     private val cache = mutableMapOf<K, Holder<K, V>>()
     private val guard = ReentrantLock()
 
-    // Change the return type to V? (nullable)
+    @Throws(TimeoutException::class, InterruptedException::class, Exception::class)
     fun get(key: K): V? {
         val holder = guard.withLock {
             val result = cache[key]
@@ -63,13 +67,17 @@ class CacheWithLatch<K, V>(
 
         return try {
             holder.getValue(key)
-        } catch (te: TimeoutException) {
-            guard.withLock { cache.remove(key) }
-            null
         } catch (ie: InterruptedException) {
             Thread.currentThread().interrupt()
-            guard.withLock { cache.remove(key) }
-            null
+            if (!holder.isComputed()) {
+                guard.withLock { cache.remove(key) }
+            }
+            throw ie
+        } catch (e: Exception) { // Catches both TimeoutException and transform() thrown exceptions
+            if (!holder.isComputed()) {
+                guard.withLock { cache.remove(key) }
+            }
+            throw e
         }
     }
 }
