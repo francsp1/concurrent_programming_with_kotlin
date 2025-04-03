@@ -9,6 +9,7 @@ class RingBuffer<T>(private val capacity: Int) {
 
     fun isFull(): Boolean = size == capacity
     fun isEmpty(): Boolean = size == 0
+    fun isNotEmpty(): Boolean = size > 0
 
     fun enqueue(value: T) {
         if (isFull()) {
