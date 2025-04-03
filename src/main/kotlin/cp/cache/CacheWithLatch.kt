@@ -1,3 +1,4 @@
+
 import cp.latch.Latch
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
@@ -6,8 +7,7 @@ import kotlin.concurrent.withLock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
-
-private class Holder<K, V>(
+private class CacheWIthLatchHolder<K, V>(
     private val transform: (K) -> V,
     private val timeout: Duration
 ) {
@@ -48,7 +48,7 @@ class CacheWithLatch<K, V>(
     private val transform: (K) -> V,
     private val timeout: Duration
 ) {
-    private val cache = mutableMapOf<K, Holder<K, V>>()
+    private val cache = mutableMapOf<K, CacheWIthLatchHolder<K, V>>()
     private val guard = ReentrantLock()
 
     @Throws(TimeoutException::class, InterruptedException::class, Exception::class)
@@ -59,7 +59,7 @@ class CacheWithLatch<K, V>(
                 result
             }
             else {
-                val newHolder = Holder(transform, timeout)
+                val newHolder = CacheWIthLatchHolder(transform, timeout)
                 cache[key] = newHolder
                 newHolder
             }
@@ -82,7 +82,7 @@ class CacheWithLatch<K, V>(
     }
 }
 
-fun cacheUsageSample() {
+fun cacheWithLatchUsageSample() {
     val cache = CacheWithLatch(transform = { key: String -> key.length }, timeout = 2.seconds)
     val value = cache.get("Hello")  // Should call transform("Hello") = 5
     if (value == null) {

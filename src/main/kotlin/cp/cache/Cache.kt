@@ -1,9 +1,8 @@
-package cp.cache
 
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
-private class Holder<K, V>(
+private class CacheHolder<K, V>(
     private val transform: (K) -> V
 ) {
     private var value: V? = null
@@ -20,7 +19,7 @@ private class Holder<K, V>(
 }
 
 class Cache<K, V>(private val transform: (K) -> V) {
-    private val cache = mutableMapOf<K, Holder<K, V>>()
+    private val cache = mutableMapOf<K, CacheHolder<K, V>>()
     private val guard = ReentrantLock()
 
     fun get(key: K): V {
@@ -30,7 +29,7 @@ class Cache<K, V>(private val transform: (K) -> V) {
                 result
             }
             else {
-                val newHolder = Holder(transform)
+                val newHolder = CacheHolder(transform)
                 cache[key] = newHolder
                 newHolder
             }
