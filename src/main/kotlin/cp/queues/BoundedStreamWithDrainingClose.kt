@@ -7,7 +7,7 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 import kotlin.time.Duration
 
-class BoundedStream<T>(capacity: Int) : Closeable {
+class BoundedStreamWithDrainingClose<T>(capacity: Int) : Closeable {
 
     private val buffer = RingBuffer<T>(capacity)
 
@@ -18,6 +18,8 @@ class BoundedStream<T>(capacity: Int) : Closeable {
     private var totalIndex = 0
 
     private var closed = false
+
+    private val bufferDrained = guard.newCondition()
 
     fun write(item: T): WriteResult {
         guard.withLock {
@@ -42,15 +44,17 @@ class BoundedStream<T>(capacity: Int) : Closeable {
     @Throws(InterruptedException::class)
     fun read(timeout: Duration): ReadResult<T> {
         guard.withLock {
-            if (closed) return ReadResult.Closed
-
             // Check if the buffer is empty and if there are any pending requests
             if (buffer.isNotEmpty()) {
                 val item = buffer.dequeue()
+                if (buffer.isEmpty()) {
+                    bufferDrained.signalAll()
+                }
                 return ReadResult.Success(item = item!!)
             }
 
-
+            // if the state is closed no more requests can be added
+            if (closed) return ReadResult.Closed
 
             var remainingTime = timeout.inWholeNanoseconds
             val myRequest = Request<T>(condition = guard.newCondition())
@@ -66,6 +70,10 @@ class BoundedStream<T>(capacity: Int) : Closeable {
                     }
 
                     if (myRequest.item != null) {
+                        // double-check if buffer is now empty
+                        if (buffer.isEmpty()) {
+                            bufferDrained.signalAll()
+                        }
                         return ReadResult.Success(item = myRequest.item!!)
                     }
 
@@ -86,6 +94,28 @@ class BoundedStream<T>(capacity: Int) : Closeable {
             closed = true
             requests.forEach { it.condition.signal() }
             requests.clear()
+        }
+    }
+
+    @Throws(InterruptedException::class)
+    fun close_and_drain(timeout: Duration): CloseResult {
+        guard.withLock {
+            closed = true
+            requests.forEach { it.condition.signal() }
+
+            var remainingTime = timeout.inWholeNanoseconds
+
+            while (true) {
+                if (buffer.isEmpty()) {
+                    return CloseResult.Success
+                }
+
+                remainingTime = bufferDrained.awaitNanos(remainingTime)
+
+                if (remainingTime <= 0) {
+                    return CloseResult.Timeout
+                }
+            }
         }
     }
 
@@ -120,4 +150,11 @@ class BoundedStream<T>(capacity: Int) : Closeable {
         data class Success<T>(val item: T) : ReadResult<T>
     }
 
+    sealed interface CloseResult {
+        // Buffer could not be drained because the timeout was exceeded
+        data object Timeout : CloseResult
+
+        // Close was done successfully
+        data object Success : CloseResult
+    }
 }

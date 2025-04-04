@@ -5,18 +5,18 @@ class RingBuffer<T>(private val capacity: Int) {
     private val buffer: Array<T?> = arrayOfNulls<Any?>(capacity) as Array<T?>
     private var head = 0  // Points to the oldest element
     private var tail = 0  // Points to the next insertion point
-    private var size = 0  // Tracks the number of elements
+    private var numberOfElements = 0  // Tracks the number of elements
 
-    fun isFull(): Boolean = size == capacity
-    fun isEmpty(): Boolean = size == 0
-    fun isNotEmpty(): Boolean = size > 0
+    fun isFull(): Boolean = numberOfElements == capacity
+    fun isEmpty(): Boolean = numberOfElements == 0
+    fun isNotEmpty(): Boolean = numberOfElements > 0
 
     fun enqueue(value: T) {
         if (isFull()) {
             // Move head forward when full, to overwrite the oldest element
             head = (head + 1) % capacity
         } else {
-            size++  // Only increment size if the buffer isn't full
+            numberOfElements++  // Only increment [numberOfElements] if the buffer isn't full
         }
 
         // Insert the new value at `tail`
@@ -35,10 +35,14 @@ class RingBuffer<T>(private val capacity: Int) {
         // Move `head` to the next position, wrapping around if necessary
         head = (head + 1) % capacity
 
-        // Decrease size when an element is removed
-        size--
+        // Decrease [numberOfElements] when an element is removed
+        numberOfElements--
 
         return value
+    }
+
+    fun numberOfElements(): Int {
+        return numberOfElements
     }
 
     // Peek method to view the oldest element without removing it
@@ -49,7 +53,7 @@ class RingBuffer<T>(private val capacity: Int) {
     // Method to print the current elements in the buffer
     fun printBuffer() {
         println("Buffer contents: ")
-        for (i in 0 until size) {
+        for (i in 0 until numberOfElements) {
             val index = (head + i) % capacity
             print("${buffer[index]} ")
         }
