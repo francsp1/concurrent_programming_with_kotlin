@@ -30,7 +30,7 @@ class RingBuffer<T>(private val capacity: Int) {
 
         // Get the value at `head` (oldest element)
         val value = buffer[head]
-        buffer[head] = null  // Avoid memory leak by clearing the reference
+        buffer[head] = null
 
         // Move `head` to the next position, wrapping around if necessary
         head = (head + 1) % capacity
@@ -53,9 +53,9 @@ class RingBuffer<T>(private val capacity: Int) {
     // Method to print the current elements in the buffer
     fun printBuffer() {
         println("Buffer contents: ")
-        for (i in 0 until numberOfElements) {
+        for (i in 0 until capacity) {
             val index = (head + i) % capacity
-            print("${buffer[index]} ")
+            println(" buffer[${i}]: ${buffer[index]} ")
         }
         println()
     }

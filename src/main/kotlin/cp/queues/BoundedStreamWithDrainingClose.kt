@@ -7,7 +7,7 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 import kotlin.time.Duration
 
-class BoundedStreamWithDrainingClose<T>(capacity: Int) : Closeable {
+class BoundedStreamWithDrainingClose<T>(capacity: Int) {
 
     private val buffer = RingBuffer<T>(capacity)
 
@@ -89,16 +89,8 @@ class BoundedStreamWithDrainingClose<T>(capacity: Int) : Closeable {
         }
     }
 
-    override fun close() {
-        guard.withLock {
-            closed = true
-            requests.forEach { it.condition.signal() }
-            requests.clear()
-        }
-    }
-
     @Throws(InterruptedException::class)
-    fun close_and_drain(timeout: Duration): CloseResult {
+    fun close(timeout: Duration): CloseResult {
         guard.withLock {
             closed = true
             requests.forEach { it.condition.signal() }

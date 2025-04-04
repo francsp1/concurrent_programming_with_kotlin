@@ -1,6 +1,4 @@
 import cp.latch.cyclic.countdown.CyclicCountdownLatchKernelStyleWithNoCancellationAndNoAbandonmentOptimized
-import isel.leic.pc.demos.my.Cache.CacheWithLatch
-import java.lang.Thread.sleep
 import kotlin.concurrent.thread
 import kotlin.test.Test
 import kotlin.test.assertEquals

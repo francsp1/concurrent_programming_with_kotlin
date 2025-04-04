@@ -46,11 +46,9 @@ class BoundedStream<T>(capacity: Int) : Closeable {
 
             // Check if the buffer is empty and if there are any pending requests
             if (buffer.isNotEmpty()) {
-                val item = buffer.dequeue()
+                val item = buffer.dequeue() // <HERE>
                 return ReadResult.Success(item = item!!)
             }
-
-
 
             var remainingTime = timeout.inWholeNanoseconds
             val myRequest = Request<T>(condition = guard.newCondition())
@@ -98,6 +96,12 @@ class BoundedStream<T>(capacity: Int) : Closeable {
     fun numberOfElements(): Int {
         guard.withLock {
             return buffer.numberOfElements()
+        }
+    }
+
+    fun printBuffer() {
+        guard.withLock {
+            buffer.printBuffer()
         }
     }
 
