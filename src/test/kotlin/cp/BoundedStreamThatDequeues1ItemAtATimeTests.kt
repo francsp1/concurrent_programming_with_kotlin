@@ -1,10 +1,10 @@
 package cp
 
-import cp.queues.BoundedStream
+import cp.queues.BoundedStreamThatDequeues1ItemAtATime
 import kotlin.test.Test
 import kotlin.time.Duration.Companion.seconds
 
-class BoundedStreamTests {
+class BoundedStreamThatDequeues1ItemAtATimeTests {
 
     @Test
     fun `bounded stream test`() {
@@ -16,7 +16,7 @@ class BoundedStreamTests {
         val nConsumerThreads = 5
         val consumerThreads = mutableListOf<Thread>()
 
-        val buffer = BoundedStream<String>(100)
+        val buffer = BoundedStreamThatDequeues1ItemAtATime<String>(100)
 
         repeat(nProducerThreads) { tid ->
 

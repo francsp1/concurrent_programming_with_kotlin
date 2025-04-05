@@ -7,7 +7,7 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 import kotlin.time.Duration
 
-class BoundedStream<T>(capacity: Int) : Closeable {
+class BoundedStreamThatDequeues1ItemAtATime<T>(capacity: Int) : Closeable {
 
     private val buffer = RingBuffer<T>(capacity)
 

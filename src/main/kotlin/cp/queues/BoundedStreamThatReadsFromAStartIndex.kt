@@ -1,5 +1,6 @@
 package cp.queues
 
+import cp.queues.RingBuffer.ReadResult
 import java.io.Closeable
 import java.util.*
 import java.util.concurrent.locks.Condition
@@ -12,18 +13,37 @@ class BoundedStreamThatReadsFromAStartIndex<T>(capacity: Int) : Closeable {
     private val buffer = RingBuffer<T>(capacity)
 
     private val guard = ReentrantLock()
-    private data class Request<T>(var item: T? = null, val condition: Condition)
+    data class Request<T>(val startIndex: Long, var items: List<T>? = null, val condition: Condition)
     private val requests = LinkedList<Request<T>>()
 
     private var totalIndex = 0
 
     private var closed = false
 
+    sealed interface WriteResult {
+        // Write was done successfully
+        data object Success : WriteResult
+        // Write cannot be done because stream is closed
+        data object Closed : WriteResult
+    }
+    sealed interface ReadResult<out T> {
+        // Read cannot be done because stream is closed
+        data object Closed: ReadResult<Nothing>
+        // Read cannot be done because the timeout was exceeded
+        data object Timeout: ReadResult<Nothing>
+        // Read was done successfully and items are returned
+        data class Success<T>(
+            // Read items
+            val items: List<T>,
+            // Index of the first read item
+            val startIndex: Long,
+        ): ReadResult<T>
+    }
+
+
     fun write(item: T): WriteResult {
         guard.withLock {
-            if (closed) {
-                return WriteResult.Closed
-            }
+            if (closed) return WriteResult.Closed
 
             if (requests.isNotEmpty()) {
                 // Fulfill a pending read request
@@ -40,31 +60,53 @@ class BoundedStreamThatReadsFromAStartIndex<T>(capacity: Int) : Closeable {
     }
 
     @Throws(InterruptedException::class)
-    fun read(timeout: Duration): ReadResult<T> {
+    fun read(startIndex: Long, timeout: Duration): ReadResult<T> {
         guard.withLock {
             if (closed) return ReadResult.Closed
 
-            // Check if the buffer is empty and if there are any pending requests
-            if (buffer.isNotEmpty()) {
-                val item = buffer.dequeue() // <HERE>
-                return ReadResult.Success(item = item!!)
+            // First, try to get an immediate result using readFromIndex.
+            val immediateResult= buffer.readFromIndex(startIndex)
+            when (immediateResult) {
+                is RingBuffer.ReadResult.Success -> {
+                    return ReadResult.Success(immediateResult.items, startIndex)
+                }
+                is RingBuffer.ReadResult.Overwritten,
+                is RingBuffer.ReadResult.InvalidIndex -> {
+                    return ReadResult.Success(emptyList(), startIndex)
+                }
+                // If the result is NotYetAvailable or Empty because no items are produced yet)
+                // we fall through to waiting for the requested data creating a request
+                is RingBuffer.ReadResult.Empty,
+                is RingBuffer.ReadResult.NotYetAvailable -> {/*Do nothing*/}
             }
 
             var remainingTime = timeout.inWholeNanoseconds
-            val myRequest = Request<T>(condition = guard.newCondition())
+            val myRequest = Request<T>(startIndex, condition = guard.newCondition())
             requests.addLast(myRequest)
 
             try {
                 while (true) {
                     remainingTime = myRequest.condition.awaitNanos(remainingTime)
 
-                    if (closed){
+                    if (closed) {
                         requests.remove(myRequest)
                         return ReadResult.Closed
                     }
 
-                    if (myRequest.item != null) {
-                        return ReadResult.Success(item = myRequest.item!!)
+                    // Check again whether data from the requested startIndex is now available.
+                    val newResult = buffer.readFromIndex(startIndex)
+                    when (newResult) {
+                        is RingBuffer.ReadResult.Success -> {
+                            requests.remove(myRequest)
+                            return ReadResult.Success(newResult.items, startIndex)
+                        }
+                        is RingBuffer.ReadResult.Overwritten,
+                        is RingBuffer.ReadResult.InvalidIndex -> {
+                            requests.remove(myRequest)
+                            return ReadResult.Success(emptyList(), startIndex)
+                        }
+                        is RingBuffer.ReadResult.Empty,
+                        is RingBuffer.ReadResult.NotYetAvailable -> {}// No new data yet, continue waiting
                     }
 
                     if (remainingTime <= 0) {
@@ -103,25 +145,6 @@ class BoundedStreamThatReadsFromAStartIndex<T>(capacity: Int) : Closeable {
         guard.withLock {
             buffer.print()
         }
-    }
-
-    sealed interface WriteResult {
-        // Write was done successfully
-        data object Success : WriteResult
-
-        // Write cannot be done because stream is closed
-        data object Closed : WriteResult
-    }
-
-    sealed interface ReadResult<out T> {
-        // Read cannot be done because stream is closed
-        data object Closed : ReadResult<Nothing>
-
-        // Read cannot be done because the timeout was exceeded
-        data object Timeout : ReadResult<Nothing>
-
-        // Read was done successfully and items are returned
-        data class Success<T>(val item: T) : ReadResult<T>
     }
 
 }
