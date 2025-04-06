@@ -11,8 +11,8 @@ class RingBuffer<T>(private val capacity: Int) {
     private var physicalHead = 0  // Points to the oldest element (physical position)
     private var physicalTail = 0  // Points to the next insertion point (physical position)
 
-    private var logicalHead = 0L  // The index of the oldest element (logical position)
-    private var logicalTail = 0L  // The index of the next element to be inserted (logical position)
+    var logicalHead = 0L  // The index of the oldest element (logical position)
+    var logicalTail = 0L  // The index of the next element to be inserted (logical position)
 
     sealed interface ReadResult<out T> {
         data class Success<T>(val items: List<T>, val startIndex: Long): ReadResult<T>
@@ -50,7 +50,7 @@ class RingBuffer<T>(private val capacity: Int) {
 
         // Get the value at `head` (oldest element)
         val value = buffer[physicalHead]
-        buffer[physicalHead] = null
+        //buffer[physicalHead] = null
 
         // Move `head` to the next position, wrapping around if necessary
         physicalHead = (physicalHead + 1) % capacity
@@ -107,6 +107,19 @@ class RingBuffer<T>(private val capacity: Int) {
     // Peek method to view the oldest element without removing it
     fun peek(): T? {
         return if (isEmpty()) null else buffer[physicalHead]
+    }
+
+    fun peekAt(index: Long): T? {
+        if (index < logicalHead) {
+            return null
+        }
+
+        if (index >= logicalTail) {
+            return null
+        }
+
+        val physicalIndex = physicalIndexFromLogicalIndex(index)
+        return buffer[physicalIndex]
     }
 
     /**
