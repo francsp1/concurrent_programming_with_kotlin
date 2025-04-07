@@ -11,16 +11,8 @@ class RingBuffer<T>(private val capacity: Int) {
     private var physicalHead = 0  // Points to the oldest element (physical position)
     private var physicalTail = 0  // Points to the next insertion point (physical position)
 
-    var logicalHead = 0L  // The index of the oldest element (logical position)
-    var logicalTail = 0L  // The index of the next element to be inserted (logical position)
-
-    sealed interface ReadResult<out T> {
-        data class Success<T>(val items: List<T>, val startIndex: Long): ReadResult<T>
-        data object Overwritten : ReadResult<Nothing>
-        data object Empty : ReadResult<Nothing>
-        data object InvalidIndex : ReadResult<Nothing>
-        data object NotYetAvailable : ReadResult<Nothing>
-    }
+    var logicalHead:Long = 0L  // The index of the oldest element (logical position)
+    var logicalTail:Long = 0L  // The index of the next element to be inserted (logical position)
 
     fun isFull(): Boolean = numberOfElements == capacity
     fun isEmpty(): Boolean = numberOfElements == 0
@@ -64,41 +56,9 @@ class RingBuffer<T>(private val capacity: Int) {
 
     // Function to calculate the physical index from the logical index
     private fun physicalIndexFromLogicalIndex(index: Long): Int {
-        return ((physicalHead + (index - logicalHead).toInt()) % capacity).toInt()
+        return ((physicalHead + (index - logicalHead)) % capacity).toInt()
     }
 
-    /**
-     * To read all items from a [startIndex] to the end of the buffer
-     */
-    fun readFromIndex(startIndex: Long): ReadResult<T> {
-        if (startIndex < 0) {
-            return ReadResult.InvalidIndex
-        }
-
-        if (isEmpty()) return ReadResult.Empty
-
-        val highestIndex = logicalTail - 1
-
-        if (startIndex < logicalHead) {
-            return ReadResult.Overwritten
-        }
-
-        if (startIndex > highestIndex) {
-            return ReadResult.NotYetAvailable
-        }
-
-
-        val items = mutableListOf<T>()
-        for (i in startIndex..highestIndex) {
-            val physicalIndex = physicalIndexFromLogicalIndex(i)
-            buffer[physicalIndex]?.let {
-                items.add(it)
-            }
-
-        }
-
-        return ReadResult.Success(items, startIndex)
-    }
 
     fun numberOfElements(): Int {
         return numberOfElements
@@ -109,13 +69,13 @@ class RingBuffer<T>(private val capacity: Int) {
         return if (isEmpty()) null else buffer[physicalHead]
     }
 
+    /**
+     * Peek at a specific logical index in the buffer.
+     * Returns null if the index is out of bounds or if the element has been overwritten.
+     */
     fun peekAt(index: Long): T? {
-        if (index < logicalHead) {
-            return null
-        }
-
-        if (index >= logicalTail) {
-            return null
+        if (index < logicalHead || index >= logicalTail) {
+            return null // Index is either too old (overwritten) or not yet available
         }
 
         val physicalIndex = physicalIndexFromLogicalIndex(index)
@@ -155,7 +115,7 @@ class RingBuffer<T>(private val capacity: Int) {
         numberOfElements = 0
         physicalHead = 0
         physicalTail = 0
-        logicalHead = 0L
-        logicalTail = 0L
+        logicalHead = 0
+        logicalTail = 0
     }
 }

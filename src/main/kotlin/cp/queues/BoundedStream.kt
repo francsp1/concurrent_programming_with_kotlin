@@ -1,6 +1,5 @@
 package cp.queues
 
-import cp.queues.BoundedStreamThatDequeues1ItemAtATime.ReadResult
 import java.io.Closeable
 import java.util.*
 import java.util.concurrent.locks.Condition
@@ -31,32 +30,30 @@ import kotlin.time.Duration
  * also implement the JVM interruption protocol.
  */
 
-class BoundedStreamTest<T>(private val capacity: Int) : Closeable {
+class BoundedStream<T>(private val capacity: Int) : Closeable {
 
     private val buffer =  RingBuffer<T>(capacity)
 
     private val guard = ReentrantLock()
-    data class Request<T>(val startIndex: Int, val condition: Condition)
-    private val requests = mutableMapOf<Int, Request<T>>()
-
-    private var totalIndex = 0
+    data class Request<T>(val startIndex: Long, val condition: Condition)
+    private val requests = mutableMapOf<Long, Request<T>>()
 
     private var closed = false
 
     @Throws(InterruptedException::class)
-    fun read(startIndex: Int, timeout: Duration): ReadResult<T> {
+    fun read(startIndex: Long, timeout: Duration): ReadResult<T> {
         guard.withLock {
             if (closed) return ReadResult.Closed
-            
-            if (buffer.isEmpty()) return ReadResult.Success(emptyList(), startIndex)
 
-            if (requests.containsKey(startIndex))  return ReadResult.AlreadyBeeingRead
+            // if the request is already overwritten
+            if (startIndex < buffer.logicalHead)
+                return ReadResult.Success(items = emptyList(), startIndex = startIndex)
 
             if (startIndex < buffer.logicalTail) {
                 // The requested index is already available
                 val items = mutableListOf<T>()
                 for (i in startIndex until buffer.logicalTail) {
-                    items.add(buffer.dequeue()!!)
+                    items.add((buffer.peekAt(startIndex)!!))
                 }
                 return ReadResult.Success(items, startIndex)
             }
@@ -74,11 +71,11 @@ class BoundedStreamTest<T>(private val capacity: Int) : Closeable {
                         return ReadResult.Closed
                     }
 
-                    if (myRequest.startIndex < buffer.logicalTail) {
+                    if (myRequest.startIndex < buffer.logicalTail) { // highest index is logicalTail - 1
                         // The requested index is now available
                         val items = mutableListOf<T>()
                         for (i in startIndex until buffer.logicalTail) {
-                            items.add(buffer.dequeue()!!)
+                            items.add((buffer.peekAt(startIndex))!!)
                         }
                         requests.remove(startIndex)
                         return ReadResult.Success(items, startIndex)
@@ -114,13 +111,12 @@ class BoundedStreamTest<T>(private val capacity: Int) : Closeable {
         data object Closed: ReadResult<Nothing>
         // Read cannot be done because the timeout was exceeded
         data object Timeout: ReadResult<Nothing>
-        data object AlreadyBeeingRead: ReadResult<Nothing>
         // Read was done successfully and items are returned
         data class Success<T>(
             // Read items
             val items: List<T>,
             // Index of the first read item
-            val startIndex: Int,
+            val startIndex: Long,
         ): ReadResult<T>
     }
 
