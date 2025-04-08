@@ -1,7 +1,5 @@
 package cp.queues
 
-
-
 class RingBuffer<T>(private val capacity: Int) {
     @Suppress("UNCHECKED_CAST")
     private val buffer: Array<T?> = arrayOfNulls<Any?>(capacity) as Array<T?>
@@ -115,7 +113,7 @@ class RingBuffer<T>(private val capacity: Int) {
         numberOfElements = 0
         physicalHead = 0
         physicalTail = 0
-        logicalHead = 0
-        logicalTail = 0
+        logicalHead = 0L
+        logicalTail = 0L
     }
 }
