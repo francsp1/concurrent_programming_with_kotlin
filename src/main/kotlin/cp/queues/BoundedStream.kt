@@ -7,7 +7,6 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 import kotlin.time.Duration
 
-
 /**
  * Develop the BoundedStream<T> class implementing a thread-safe bounded multi-producer multi-consumer
  * sequence of items, where each item is associated to a monotonically increasing index,
@@ -29,7 +28,6 @@ import kotlin.time.Duration
  * The blocking operations, namely the read function, must support cancellation via timeout and must
  * also implement the JVM interruption protocol.
  */
-
 class BoundedStream<T>(private val capacity: Int) : Closeable {
 
     private val buffer =  RingBuffer<T>(capacity)
@@ -51,7 +49,7 @@ class BoundedStream<T>(private val capacity: Int) : Closeable {
             // Notify all requests waiting for an index that is now available.
             // Since buffer.logicalTail is the index of the next element to be inserted,
             // every request with (startIndex < logicalTail) can now be fulfilled.
-            val readyRequests = requests.headMap(buffer.logicalTail, false)
+            val readyRequests = requests.headMap(buffer.getLogicalTail(), false)
             for (request in readyRequests.values) {
                 request.condition.signal()
             }
@@ -66,10 +64,10 @@ class BoundedStream<T>(private val capacity: Int) : Closeable {
             if (closed) return ReadResult.Closed
 
             // if the request is already overwritten
-            if (startIndex < buffer.logicalHead)
+            if (startIndex < buffer.getLogicalHead())
                 return ReadResult.Success(items = emptyList(), startIndex = startIndex)
 
-            if (startIndex < buffer.logicalTail) { // highest index is logicalTail - 1
+            if (startIndex < buffer.getLogicalTail()) { // highest index is logicalTail - 1
                 // The requested index is already available
                 return ReadResult.Success(readAvailableItems(startIndex), startIndex)
             }
@@ -87,7 +85,7 @@ class BoundedStream<T>(private val capacity: Int) : Closeable {
                         return ReadResult.Closed
                     }
 
-                    if (startIndex < buffer.logicalTail) { // highest index is logicalTail - 1
+                    if (startIndex < buffer.getLogicalTail()) { // highest index is logicalTail - 1
                         // The requested index is now available
                         val items = readAvailableItems(startIndex)
                         requests.remove(startIndex)
@@ -108,7 +106,7 @@ class BoundedStream<T>(private val capacity: Int) : Closeable {
 
     private fun readAvailableItems(startIndex: Long): List<T> {
         val items = mutableListOf<T>()
-        for (i in startIndex until buffer.logicalTail) {
+        for (i in startIndex until buffer.getLogicalTail()) {
             buffer.peekAt(i)?.let { items.add(it) }
         }
         return items
@@ -130,6 +128,7 @@ class BoundedStream<T>(private val capacity: Int) : Closeable {
         // Write cannot be done because stream is closed
         data object Closed : WriteResult
     }
+
     sealed interface ReadResult<out T> {
         // Read cannot be done because stream is closed
         data object Closed: ReadResult<Nothing>

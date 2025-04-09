@@ -9,8 +9,8 @@ class RingBuffer<T>(private val capacity: Int) {
     private var physicalHead = 0  // Points to the oldest element (physical position)
     private var physicalTail = 0  // Points to the next insertion point (physical position)
 
-    var logicalHead:Long = 0L  // The index of the oldest element (logical position)
-    var logicalTail:Long = 0L  // The index of the next element to be inserted (logical position)
+    private var logicalHead:Long = 0L  // The index of the oldest element (logical position)
+    private var logicalTail:Long = 0L  // The index of the next element to be inserted (logical position)
 
     fun isFull(): Boolean = numberOfElements == capacity
     fun isEmpty(): Boolean = numberOfElements == 0
@@ -57,18 +57,13 @@ class RingBuffer<T>(private val capacity: Int) {
         return ((physicalHead + (index - logicalHead)) % capacity).toInt()
     }
 
-
-    fun numberOfElements(): Int {
-        return numberOfElements
-    }
-
     // Peek method to view the oldest element without removing it
     fun peek(): T? {
         return if (isEmpty()) null else buffer[physicalHead]
     }
 
     /**
-     * Peek at a specific logical index in the buffer.
+     * Peek at a specific logical [index] in the buffer.
      * Returns null if the index is out of bounds or if the element has been overwritten.
      */
     fun peekAt(index: Long): T? {
@@ -78,6 +73,18 @@ class RingBuffer<T>(private val capacity: Int) {
 
         val physicalIndex = physicalIndexFromLogicalIndex(index)
         return buffer[physicalIndex]
+    }
+
+    fun getLogicalHead(): Long {
+        return logicalHead
+    }
+
+    fun getLogicalTail(): Long {
+        return logicalTail
+    }
+
+    fun numberOfElements(): Int {
+        return numberOfElements
     }
 
     /**
