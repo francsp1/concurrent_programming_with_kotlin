@@ -1,4 +1,4 @@
-import cp.latch.cyclic.countdown.CyclicCountdownLatchKernelStyleWithNoCancellationAndNoAbandonmentOptimized
+import cp.latch.cyclic.countdown.CyclicCountdownLatchKernelStyleWithNoCancellationAndNoShutdownOptimized
 import kotlin.concurrent.thread
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -8,7 +8,7 @@ class MyTests {
     @Test
     fun `countdown latch` () {
         val count = 5
-        val latch = CyclicCountdownLatchKernelStyleWithNoCancellationAndNoAbandonmentOptimized(count)
+        val latch = CyclicCountdownLatchKernelStyleWithNoCancellationAndNoShutdownOptimized(count)
         val cycles = 10
         val nThreads = 3
         val threads = mutableListOf<Thread>()
@@ -38,7 +38,7 @@ class MyTests {
     @Test
     fun `countdown latch dead lock` () {
         val count = 5
-        val latch = CyclicCountdownLatchKernelStyleWithNoCancellationAndNoAbandonmentOptimized(count)
+        val latch = CyclicCountdownLatchKernelStyleWithNoCancellationAndNoShutdownOptimized(count)
         val nThreads = 3
         val threads = mutableListOf<Thread>()
 

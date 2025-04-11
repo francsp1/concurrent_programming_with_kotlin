@@ -4,7 +4,7 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 
-class CyclicCountdownLatchKernelStyleWithNoCancellationAndNoAbandonmentOptimized(val initialCount: Int) {
+class CyclicCountdownLatchKernelStyleWithNoCancellationAndNoShutdownOptimized(val initialCount: Int) {
     init { require(initialCount > 0) }
 
     private data class Request(var signalled: Boolean = false)

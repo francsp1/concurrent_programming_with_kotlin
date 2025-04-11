@@ -1,4 +1,4 @@
-package cp.queues
+package cp.datastructures
 
 class RingBuffer<T>(private val capacity: Int) {
     @Suppress("UNCHECKED_CAST")

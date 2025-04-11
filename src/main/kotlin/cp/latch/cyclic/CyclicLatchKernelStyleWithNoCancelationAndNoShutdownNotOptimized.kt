@@ -3,7 +3,7 @@ package cp.latch.cyclic
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
-class CyclicLatchKernelStyleWithNoCancelationAndNoAbandonmentNotOptimized {
+class CyclicLatchKernelStyleWithNoCancelationAndNoShutdownNotOptimized {
 
     data class Request(var signalled: Boolean = false)
 

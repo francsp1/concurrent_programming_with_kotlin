@@ -1,4 +1,4 @@
-package cp.queues
+package cp.datastructures
 
 
 import java.util.*

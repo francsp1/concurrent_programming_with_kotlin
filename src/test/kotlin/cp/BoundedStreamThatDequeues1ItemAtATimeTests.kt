@@ -1,6 +1,6 @@
 package cp
 
-import cp.queues.BoundedStreamThatDequeues1ItemAtATime
+import cp.datastructures.BoundedStreamThatDequeues1ItemAtATime
 import kotlin.test.Test
 import kotlin.time.Duration.Companion.seconds
 

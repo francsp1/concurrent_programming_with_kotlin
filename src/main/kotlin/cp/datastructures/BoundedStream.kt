@@ -1,4 +1,4 @@
-package cp.queues
+package cp.datastructures
 
 import java.io.Closeable
 import java.util.*
@@ -97,9 +97,9 @@ class BoundedStream<T>(private val capacity: Int) : Closeable {
                         return ReadResult.Timeout
                     }
                 }
-            } catch (e: InterruptedException) {
+            } catch (ie: InterruptedException) {
                 requests.remove(startIndex)
-                throw e
+                throw ie
             }
         }
     }
