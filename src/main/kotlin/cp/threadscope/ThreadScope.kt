@@ -2,6 +2,7 @@ package cp.threadscope
 
 import java.io.Closeable
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Implement the ThreadScope class, responsible for holding a set of related threads. Each ThreadScope
@@ -54,7 +55,7 @@ class ThreadScope(
         // Close all child scopes
         childScopes.forEach { it.close() }
         childScopes.clear()
-        
+
     }
 
     // Interrupts all threads in the scope and cancels all child scopes.
@@ -74,8 +75,27 @@ class ThreadScope(
     // Waits until all threads and child scopes have completed
     @Throws(InterruptedException::class)
     fun join(timeout: Duration): Boolean {
-        TODO("Not yet implemented")
+        val deadline = System.currentTimeMillis() + timeout.inWholeMilliseconds
+
+        // Wait for all threads to complete
+        for (thread in threads) {
+            val remainingTime = deadline - System.currentTimeMillis()
+            if (remainingTime <= 0) return false
+            thread.join(remainingTime)
+            if (thread.isAlive) return false
+        }
+
+        // Wait for all child scopes to complete
+        for (childScope in childScopes) {
+            val remainingTime = deadline - System.currentTimeMillis()
+            if (remainingTime <= 0) return false
+            if (!childScope.join(timeout = remainingTime.milliseconds)) return false
+        }
+
+        return true
     }
+
+
 
 
 
