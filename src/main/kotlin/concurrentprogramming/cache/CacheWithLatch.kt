@@ -1,5 +1,5 @@
 
-import cp.latch.Latch
+import concurrentprogramming.latch.Latch
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.locks.ReentrantLock

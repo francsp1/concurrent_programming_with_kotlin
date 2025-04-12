@@ -1,4 +1,4 @@
-package cp.datastructures
+package concurrentprogramming.datastructures
 
 class RingBuffer<T>(private val capacity: Int) {
     @Suppress("UNCHECKED_CAST")

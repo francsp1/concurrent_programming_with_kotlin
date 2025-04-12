@@ -1,10 +1,12 @@
-package cp.latch.cyclic.countdown
+package concurrentprogramming.latch.cyclic.countdown
 
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
+import kotlin.jvm.Throws
+import kotlin.time.Duration
 
 
-class CyclicCountdownLatchKernelStyleWithNoCancellationAndNoShutdownOptimized(val initialCount: Int) {
+class CyclicCountdownLatchKernelStyle(private val initialCount: Int) {
     init { require(initialCount > 0) }
 
     private data class Request(var signalled: Boolean = false)
@@ -15,17 +17,29 @@ class CyclicCountdownLatchKernelStyleWithNoCancellationAndNoShutdownOptimized(va
     private val guard = ReentrantLock()
     private val condition = guard.newCondition()
 
-    fun await() {
+    @Throws(InterruptedException::class)
+    fun await(timeout: Duration): Boolean {
         guard.withLock {
             val myRequest = Request()
             requests.add(myRequest)
 
-            while (true) {
-                condition.await()
+            var remainingTime = timeout.inWholeNanoseconds
 
-                if (myRequest.signalled) {
-                    return
+            try {
+                while (true) {
+                    remainingTime = condition.awaitNanos(remainingTime)
+
+                    if (myRequest.signalled)
+                        return true
+
+                    if (remainingTime <= 0) { // 2. Timeout
+                        requests.remove(myRequest)
+                        return false
+                    }
                 }
+            } catch (ie: InterruptedException) {
+                requests.remove(myRequest)
+                throw ie
             }
         }
     }

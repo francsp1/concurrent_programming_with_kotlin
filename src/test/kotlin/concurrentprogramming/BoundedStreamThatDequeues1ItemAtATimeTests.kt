@@ -1,24 +1,22 @@
-package cp
+package concurrentprogramming
 
-import cp.datastructures.BoundedStream
+import concurrentprogramming.datastructures.BoundedStreamThatDequeues1ItemAtATime
 import kotlin.test.Test
 import kotlin.time.Duration.Companion.seconds
 
-class BoundedStreamTests {
+class BoundedStreamThatDequeues1ItemAtATimeTests {
 
     @Test
     fun `bounded stream test`() {
-        val capacity = 100
-
-        val itemsProduced = 20
+        val itemsProduced = 10
         val nProducerThreads = 5
         val producerThreads = mutableListOf<Thread>()
 
-        val itemsConsumed = 0
-        val nConsumerThreads = 0
+        val itemsConsumed = 5
+        val nConsumerThreads = 5
         val consumerThreads = mutableListOf<Thread>()
 
-        val buffer = BoundedStream<String>(capacity)
+        val buffer = BoundedStreamThatDequeues1ItemAtATime<String>(100)
 
         repeat(nProducerThreads) { tid ->
 
@@ -33,7 +31,7 @@ class BoundedStreamTests {
         repeat(nConsumerThreads) { tid ->
             val thread = Thread.ofPlatform().start {
                 for (i in 0 until itemsConsumed) {
-                    val item = buffer.read(startIndex = 20 , 5.seconds)
+                    val item = buffer.read(5.seconds)
                     println("Thread $tid consumed $item")
                 }
             }
@@ -43,7 +41,7 @@ class BoundedStreamTests {
         producerThreads.forEach { it.join() }
         consumerThreads.forEach { it.join() }
 
-
+        buffer.printBuffer()
 
         val hello = "hello"
     }

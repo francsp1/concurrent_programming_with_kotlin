@@ -1,4 +1,4 @@
-import cp.latch.cyclic.countdown.CyclicCountdownLatchKernelStyleWithNoCancellationAndNoShutdownOptimized
+import concurrentprogramming.latch.cyclic.countdown.CyclicCountdownLatchKernelStyleWithNoCancellationAndNoShutdownOptimized
 import kotlin.concurrent.thread
 import kotlin.test.Test
 import kotlin.test.assertEquals

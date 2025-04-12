@@ -1,10 +1,10 @@
-package cp.latch.cyclic.countdown
+package concurrentprogramming.latch.cyclic.countdown
 
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 
-class CyclicCountdownLatchKernelStyleWithNoCancellationAndNoShutdownNotOptimized(val initialCount: Int) {
+class CyclicCountdownLatchKernelStyleWithNoCancellationAndNoShutdownOptimized(val initialCount: Int) {
     init { require(initialCount > 0) }
 
     private data class Request(var signalled: Boolean = false)
@@ -17,10 +17,6 @@ class CyclicCountdownLatchKernelStyleWithNoCancellationAndNoShutdownNotOptimized
 
     fun await() {
         guard.withLock {
-            if (counter == 0) {
-                return
-            }
-
             val myRequest = Request()
             requests.add(myRequest)
 
@@ -36,17 +32,15 @@ class CyclicCountdownLatchKernelStyleWithNoCancellationAndNoShutdownNotOptimized
 
     fun countDown(): Int {
         guard.withLock {
-            if (counter > 0) {
-                counter--
-                if (counter == 0){
-                    val nThreads = requests.size
-                    while (requests.size > 0) {
-                        requests.removeFirst().signalled = true
-                    }
-                    counter = initialCount
-                    condition.signalAll()
-                    return nThreads
+            counter--
+            if (counter == 0){
+                val nThreads = requests.size
+                while (requests.size > 0) {
+                    requests.removeFirst().signalled = true
                 }
+                counter = initialCount
+                condition.signalAll()
+                return nThreads
             }
             return 0
         }

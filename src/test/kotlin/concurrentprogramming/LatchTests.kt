@@ -1,5 +1,5 @@
 package cpimport
-import cp.latch.Latch
+import concurrentprogramming.latch.Latch
 import java.lang.Thread.sleep
 import kotlin.test.Test
 import kotlin.time.Duration.Companion.seconds

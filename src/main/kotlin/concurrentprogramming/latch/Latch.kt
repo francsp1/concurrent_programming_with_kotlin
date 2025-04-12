@@ -1,4 +1,4 @@
-package cp.latch
+package concurrentprogramming.latch
 
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock

@@ -1,4 +1,4 @@
-package cp.threadscope
+package concurrentprogramming.threadscope
 
 import java.io.Closeable
 import kotlin.time.Duration

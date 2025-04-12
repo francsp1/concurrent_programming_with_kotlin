@@ -1,4 +1,4 @@
-package cp.datastructures
+package concurrentprogramming.datastructures
 
 import java.io.Closeable
 import java.util.*
