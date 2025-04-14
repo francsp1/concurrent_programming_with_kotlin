@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Semaphore
 
 private val logger: Logger = LoggerFactory.getLogger("ES with safe statistics")
@@ -30,12 +31,15 @@ private fun runEchoServer() {
         serverSocket.bind(InetSocketAddress("0.0.0.0", PORT))
         while (true) {
             logger.info("Waiting for clients to connect...")
-            val clientSocket = serverSocket.accept()
-            semaphore.acquire()
-            Thread.ofPlatform().start {
-                handleClient(clientSocket)
+            try {
+                semaphore.acquire()
+                val clientSocket = serverSocket.accept()
+                Thread.ofPlatform().start {
+                    handleClient(clientSocket)
+                }
+            } finally {
+                semaphore.release()
             }
-            semaphore.release()
         }
     }
 }
