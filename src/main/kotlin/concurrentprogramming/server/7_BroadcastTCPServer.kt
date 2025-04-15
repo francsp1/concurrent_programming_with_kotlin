@@ -4,6 +4,7 @@ import concurrentprogramming.datastructures.BoundedStream
 import concurrentprogramming.threadscope.ThreadScope
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
@@ -60,8 +61,8 @@ private fun runServer() {
 private fun handleClient(clientSocket: Socket) {
     logger.info("Client connected: ${clientSocket.remoteSocketAddress}")
     /*
-    val writter = threadScope.newChildScope("writter-")
-    writter?.startThread("writter") { writterThreadTask(clientSocket) }
+    val writer = threadScope.newChildScope("writer-")
+    writer?.startThread("writer") { writerThreadTask(clientSocket) }
     */
     val session = serverInfo.createSession(clientSocket)
     // 🔍 Log all active sessions
@@ -70,90 +71,106 @@ private fun handleClient(clientSocket: Socket) {
     }
 
 
-    val writter = Thread.ofPlatform().name("tWritter-${serverInfo.totalClients}").start {
-        writterThreadTask(clientSocket, session)
+    val writer = Thread.ofPlatform().name("Writer-${serverInfo.totalClients}").start {
+        writerThreadTask(clientSocket, session)
     }
 
 
-
-    val reader = Thread.ofPlatform().name("tReader-${serverInfo.totalClients}").start {
+    val reader = Thread.ofPlatform().name("Reader-${serverInfo.totalClients}").start {
         readerThreadtask(clientSocket, session)
     }
 }
 
-private fun writterThreadTask(clientSocket: Socket, sessionInfo: SafeSessionInfoForBroadcastServer) {
-    clientSocket.getOutputStream().bufferedWriter().use { writter ->
+private fun writerThreadTask(clientSocket: Socket, sessionInfo: SafeSessionInfoForBroadcastServer) {
+    val clientAddress = clientSocket.remoteSocketAddress
 
-        val clientSocketAddress = clientSocket.remoteSocketAddress
-        writter.writeLine("Hello ${clientSocketAddress}! Please type something and press Enter:")
-
+    clientSocket.getOutputStream().bufferedWriter().use { writer ->
         var currentIndex = buffer.getLogicalTail()
-        var lastKnownIndex = currentIndex  // Track last known index for buffer reads.
 
         while (true) {
-            val result = buffer.read(currentIndex, Duration.INFINITE)
+            val result = try {
+                buffer.read(currentIndex, Duration.INFINITE)
+            } catch (e: InterruptedException) {
+                logger.info("Writer thread for $clientAddress interrupted.")
+                break
+            }
 
             when (result) {
                 is BoundedStream.ReadResult.Success -> {
-                    val items = result.items
-                    if (items.isEmpty()) {
-                        logger.info("No new messages to read from the buffer! Current logical tail is $currentIndex, last known index was $lastKnownIndex.")
-                        lastKnownIndex = currentIndex  // Update last known index
+                    if (result.items.isEmpty()) {
+                        logger.info("No new messages for $clientAddress. currentIndex=$currentIndex")
                         currentIndex = buffer.getLogicalTail()
                         continue
                     }
 
-                    currentIndex += items.size
-                    logger.info("Removed ${items.size} messages from the buffer. New logical tail is $currentIndex.")
-
-                    // Process messages
-                    for (msg in items) {
-                        if (msg.message.isEmpty()) {
-                            logger.info("Received an empty message from ${msg.senderId}.")
-                        } else {
-                            logger.info("Received message from ${msg.senderId}: ${msg.message}. Writing to client.")
-                        }
-
-                        // Write message to client
-                        writter.writeLine("${msg.senderId} wrote: ${msg.message}")
+                    for (msg in result.items) {
+                        val line = "${msg.senderId} wrote: ${msg.message}"
+                        writer.writeLine(line)
+                        logger.info("Sent to $clientAddress -> $line")
                     }
+
+                    currentIndex += result.items.size
                 }
 
                 is BoundedStream.ReadResult.Timeout -> {
-                    logger.info("Timeout while reading from buffer. Retrying...")
+                    logger.info("Timeout while reading buffer for $clientAddress.")
                     continue
                 }
 
                 is BoundedStream.ReadResult.Closed -> {
-                    logger.info("The buffer was closed.")
+                    logger.info("Buffer closed. Stopping writer for $clientAddress.")
+                    break
+                }
+
+                is BoundedStream.ReadResult.IndexOverwritten -> {
+                    logger.info("Index $currentIndex for $clientAddress was overwritten. Jumping to latest.")
+                    currentIndex = buffer.getLogicalTail()
                     continue
                 }
             }
         }
     }
+    logger.info("Writer thread for $clientAddress terminated (Session ID: ${sessionInfo.id}).")
 }
+
 
 private const val EXIT = "exit"
 private const val STATS = "stats"
 
 private fun readerThreadtask(clientSocket: Socket, session: SafeSessionInfoForBroadcastServer) {
+    try {
+        clientSocket.getInputStream().bufferedReader().use { reader ->
+            clientSocket.getOutputStream().bufferedWriter().use { writer ->
+                writer.writeLine("Hello ${clientSocket.remoteSocketAddress}! Please type something and press Enter:")
 
-    clientSocket.getInputStream().bufferedReader().use { reader ->
-        while (true) {
-            val line = reader.readLine()
-            if (line.trim().lowercase() == EXIT) {
-                //session.writeLine("Bye!")
-                break
+                while (true) {
+                    val rawLine = reader.readLine() ?: break
+                    val normalized = rawLine.trim().lowercase()
+
+                    when (normalized) {
+                        EXIT -> {
+                            logger.info("[Session ${session.id}] Client ${session.remoteSocketAddress} sent \"exit\".")
+                            writer.writeLine("Exiting...")
+                            break
+                        }
+                        STATS -> {
+                            logger.info("[Session: ${session.id}] Client ${session.remoteSocketAddress} requested stats.")
+                            writer.writeLine("Session stats: ${serverInfo.getStats()}")
+                            continue
+                        }
+                    }
+
+                    serverInfo.incrementMessageCount(session)
+                    buffer.write(BroadcastMessage(session.id, rawLine))
+
+                    logger.info("Received message from session [${session.id}] at ${session.remoteSocketAddress}: $rawLine and added to buffer")
+                }
             }
-            if (line.trim().lowercase() == STATS) {
-                //session.writeLine("Session stats: ${serverInfo.getStats()}")
-                continue
-            }
-            serverInfo.incrementMessageCount(session)
-            buffer.write(BroadcastMessage(session.id, line))
-            logger.info("Received message from session [${session.id}] at ${session.remoteSocketAddress}: $line and added to buffer")
         }
+    } catch (e: IOException) {
+        logger.info("Session ${session.id} at ${session.remoteSocketAddress} disconnected abruptly: ${e.message}")
+    } finally {
+        serverInfo.endSession(session)
     }
-    serverInfo.endSession(session)
 }
 

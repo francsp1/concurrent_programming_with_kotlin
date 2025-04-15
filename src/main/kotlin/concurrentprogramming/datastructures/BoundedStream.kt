@@ -33,10 +33,9 @@ class BoundedStream<T>(private val capacity: Int) : Closeable {
     private val buffer =  RingBuffer<T>(capacity)
 
     private val guard = ReentrantLock()
-    data class Request<T>(val startIndex: Long, val condition: Condition)
+    data class Request(val startIndex: Long, val condition: Condition)
 
-    //private val requests = mutableMapOf<Long, Request<T>>()
-    private val requests = TreeMap<Long, Request<T>>()
+    private val requests = mutableListOf<Request>()
 
     private var closed = false
 
@@ -46,12 +45,10 @@ class BoundedStream<T>(private val capacity: Int) : Closeable {
 
             buffer.enqueue(item)
 
-            // Notify all requests waiting for an index that is now available.
-            // Since buffer.logicalTail is the index of the next element to be inserted,
-            // every request with (startIndex < logicalTail) can now be fulfilled.
-            val readyRequests = requests.headMap(buffer.getLogicalTail(), false)
-            for (request in readyRequests.values) {
-                request.condition.signal()
+            for (request in requests) {
+                if (request.startIndex < buffer.getLogicalTail()) {
+                    request.condition.signal()
+                }
             }
 
             return WriteResult.Success
@@ -65,7 +62,7 @@ class BoundedStream<T>(private val capacity: Int) : Closeable {
 
             // if the request is already overwritten
             if (startIndex < buffer.getLogicalHead())
-                return ReadResult.Success(items = emptyList(), startIndex = startIndex)
+                return ReadResult.IndexOverwritten
 
             if (startIndex < buffer.getLogicalTail()) { // highest index is logicalTail - 1
                 // The requested index is already available
@@ -73,32 +70,32 @@ class BoundedStream<T>(private val capacity: Int) : Closeable {
             }
 
             var remainingTime = timeout.inWholeNanoseconds
-            val myRequest = Request<T>(startIndex, guard.newCondition())
-            requests[startIndex] = myRequest
+            val myRequest = Request(startIndex, guard.newCondition())
+            requests.add(myRequest)
 
             try  {
                 while (true) {
                     remainingTime = myRequest.condition.awaitNanos(remainingTime)
 
                     if (closed) {
-                        requests.remove(startIndex)
+                        requests.remove(myRequest)
                         return ReadResult.Closed
                     }
 
                     if (startIndex < buffer.getLogicalTail()) { // highest index is logicalTail - 1
                         // The requested index is now available
                         val items = peakAvailableItems(startIndex)
-                        requests.remove(startIndex)
-                        return ReadResult.Success(items, startIndex)
+                        requests.remove(myRequest)
+                        return ReadResult.Success(items, startIndex, )
                     }
 
                     if (remainingTime <= 0) {
-                        requests.remove(startIndex)
+                        requests.remove(myRequest)
                         return ReadResult.Timeout
                     }
                 }
             } catch (ie: InterruptedException) {
-                requests.remove(startIndex)
+                requests.remove(myRequest)
                 throw ie
             }
         }
@@ -116,18 +113,22 @@ class BoundedStream<T>(private val capacity: Int) : Closeable {
     override fun close() {
         guard.withLock {
             closed = true
-            for (request in requests.values) {
+            for (request in requests) {
                 request.condition.signal()
             }
         }
     }
 
-    fun getLogicalTail(): Long = guard.withLock {
-        buffer.getLogicalTail()
+    fun getLogicalTail(): Long{
+        guard.withLock {
+            return buffer.getLogicalTail()
+        }
     }
 
-    fun getLogicalHead(): Long = guard.withLock {
-        buffer.getLogicalHead()
+    fun getLogicalHead(): Long {
+        guard.withLock {
+            return buffer.getLogicalHead()
+        }
     }
 
     sealed interface WriteResult {
@@ -142,12 +143,16 @@ class BoundedStream<T>(private val capacity: Int) : Closeable {
         data object Closed: ReadResult<Nothing>
         // Read cannot be done because the timeout was exceeded
         data object Timeout: ReadResult<Nothing>
+        // Read cannot be done because the request was overwritten
+        data object IndexOverwritten: ReadResult<Nothing>
         // Read was done successfully and items are returned
         data class Success<T>(
             // Read items
             val items: List<T>,
             // Index of the first read item
             val startIndex: Long,
+            // Index of the last read item
+            val endIndex: Long = startIndex + items.size - 1
         ): ReadResult<T>
     }
 }
