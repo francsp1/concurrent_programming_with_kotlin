@@ -12,11 +12,11 @@ private const val PORT = 9090
 
 fun main() {
     logger.info("Starting echo server on port $PORT")
-    runEchoServer()
+    runServer()
     logger.info("Echo server stopped")
 }
 
-private fun runEchoServer() {
+private fun runServer() {
     ServerSocket().use { serverSocket ->
         serverSocket.bind(InetSocketAddress("0.0.0.0", PORT))
         val clientCount = AtomicInteger(0)

@@ -69,7 +69,7 @@ class BoundedStream<T>(private val capacity: Int) : Closeable {
 
             if (startIndex < buffer.getLogicalTail()) { // highest index is logicalTail - 1
                 // The requested index is already available
-                return ReadResult.Success(readAvailableItems(startIndex), startIndex)
+                return ReadResult.Success(peakAvailableItems(startIndex), startIndex)
             }
 
             var remainingTime = timeout.inWholeNanoseconds
@@ -87,7 +87,7 @@ class BoundedStream<T>(private val capacity: Int) : Closeable {
 
                     if (startIndex < buffer.getLogicalTail()) { // highest index is logicalTail - 1
                         // The requested index is now available
-                        val items = readAvailableItems(startIndex)
+                        val items = peakAvailableItems(startIndex)
                         requests.remove(startIndex)
                         return ReadResult.Success(items, startIndex)
                     }
@@ -104,7 +104,7 @@ class BoundedStream<T>(private val capacity: Int) : Closeable {
         }
     }
 
-    private fun readAvailableItems(startIndex: Long): List<T> {
+    private fun peakAvailableItems(startIndex: Long): List<T> {
         val items = mutableListOf<T>()
         for (i in startIndex until buffer.getLogicalTail()) {
             buffer.peekAt(i)?.let { items.add(it) }
@@ -120,6 +120,14 @@ class BoundedStream<T>(private val capacity: Int) : Closeable {
                 request.condition.signal()
             }
         }
+    }
+
+    fun getLogicalTail(): Long = guard.withLock {
+        buffer.getLogicalTail()
+    }
+
+    fun getLogicalHead(): Long = guard.withLock {
+        buffer.getLogicalHead()
     }
 
     sealed interface WriteResult {

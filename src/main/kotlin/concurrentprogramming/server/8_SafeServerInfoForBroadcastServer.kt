@@ -2,6 +2,7 @@ package concurrentprogramming.server
 
 import java.net.Socket
 import java.net.SocketAddress
+import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
@@ -12,10 +13,12 @@ import java.util.concurrent.atomic.AtomicLong
  * @property [messageCount] the number of messages received
  */
 class SafeSessionInfoForBroadcastServer(private val clientSocket: Socket) {
+    val id: UUID = UUID.randomUUID()
+
     val remoteSocketAddress = clientSocket.remoteSocketAddress
 
-    private val writter = clientSocket.getOutputStream().bufferedWriter()
-    private val reader  = clientSocket.getInputStream().bufferedReader()
+    //private val writter = clientSocket.getOutputStream().bufferedWriter()
+    //private val reader  = clientSocket.getInputStream().bufferedReader()
 
     private val _messageCount = AtomicInteger(0)
 
@@ -26,26 +29,32 @@ class SafeSessionInfoForBroadcastServer(private val clientSocket: Socket) {
         _messageCount.incrementAndGet()
     }
 
+    /*
+    @Synchronized
     fun writeLine(message: String) {
         writter.writeLine(message)
     }
 
+    @Synchronized
     fun readLine(): String {
         return reader.readLine()
     }
+    */
 
     fun close() {
-        writter.close()
-        reader.close()
+        //writter.close()
+        //reader.close()
         clientSocket.close()
     }
+
 }
 
 /**
  * Represents the server statistics.
- * @property [totalClients] the total number of clients
- * @property [sessions] the list of sessions
- * @property [activeSessions] the number of active sessions
+ * @property [totalClients] the total number of clients ever connected
+ * @property [sessions] the list of all current connected sessions
+ * @property [activeSessions] the number of current active sessions
+ * @property [totalMessages] the total number of messages ever received (Excluding "stats" and "exit")
  */
 data class SafeStatsForBroadcastServer(
     val totalClients: Long = 0,
@@ -63,8 +72,12 @@ data class SafeStatsForBroadcastServer(
 }
 
 /**
- * Represents the server information. This implementation is safe but not scalable because
- * it uses a single lock to protect all shared state.
+ * Represents the server information.
+ * @property [sessions] the list of all current connected sessions
+ * @property [_totalClients] the total number of clients ever connected (Internal access only)
+ * @property [_totalMessages] the total number of messages ever received (Excluding "stats" and "exit") (Internal access only)
+ * @property [totalClients] the total number of clients ever connected (for outside access)
+ * @property [totalMessages] the total number of messages ever received (Excluding "stats" and "exit") (for outside access)
  */
 class SafeServerInfoForBroadcastServer {
 

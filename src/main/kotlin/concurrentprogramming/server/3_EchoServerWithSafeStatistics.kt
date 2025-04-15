@@ -5,7 +5,6 @@ import org.slf4j.LoggerFactory
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
-import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Semaphore
 
 private val logger: Logger = LoggerFactory.getLogger("ES with safe statistics")
@@ -18,14 +17,14 @@ private val serverInfo = SafeServerInfo()
 
 fun main() {
     logger.info("Starting echo server on port $PORT")
-    runEchoServer()
+    runServer()
     logger.info("Echo server stopped")
 }
 
 /**
  * The echo server loop.
  */
-private fun runEchoServer() {
+private fun runServer() {
     val semaphore = Semaphore(MAX_CONNECTIONS)
     ServerSocket().use { serverSocket ->
         serverSocket.bind(InetSocketAddress("0.0.0.0", PORT))
