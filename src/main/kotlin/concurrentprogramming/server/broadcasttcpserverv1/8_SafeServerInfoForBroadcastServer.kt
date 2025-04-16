@@ -1,4 +1,4 @@
-package concurrentprogramming.server
+package concurrentprogramming.server.broadcasttcpserverv1
 
 import java.net.Socket
 import java.net.SocketAddress
@@ -13,15 +13,13 @@ import java.util.concurrent.atomic.AtomicLong
  * @property [messageCount] the number of messages received
  */
 class SafeSessionInfoForBroadcastServer(private val clientSocket: Socket) {
+    @Volatile private var isClosed = false
+
     val id: UUID = UUID.randomUUID()
 
     val remoteSocketAddress = clientSocket.remoteSocketAddress
 
-    //private val writter = clientSocket.getOutputStream().bufferedWriter()
-    //private val reader  = clientSocket.getInputStream().bufferedReader()
-
     private val _messageCount = AtomicInteger(0)
-
     val messageCount: Int
         get() = _messageCount.get()
 
@@ -29,22 +27,12 @@ class SafeSessionInfoForBroadcastServer(private val clientSocket: Socket) {
         _messageCount.incrementAndGet()
     }
 
-    /*
-    @Synchronized
-    fun writeLine(message: String) {
-        writter.writeLine(message)
+    fun isClosed(): Boolean {
+        return isClosed
     }
-
-    @Synchronized
-    fun readLine(): String {
-        return reader.readLine()
-    }
-    */
 
     fun close() {
-        //writter.close()
-        //reader.close()
-        clientSocket.close()
+        isClosed = true
     }
 
 }
@@ -108,8 +96,8 @@ class SafeServerInfoForBroadcastServer {
      * @param [sessionInfo] the session to be terminated
      */
     fun endSession(sessionInfo: SafeSessionInfoForBroadcastServer) {
-        sessions.remove(sessionInfo.remoteSocketAddress)
         sessionInfo.close()
+        sessions.remove(sessionInfo.remoteSocketAddress)
     }
 
 
@@ -136,20 +124,19 @@ class SafeServerInfoForBroadcastServer {
         ).toString()
 
     /**
-     * Executes the given [block] within the context of a session.
+     * Executes the given [block] within the context of a [session].
+     * @param [session] the session to use
      * @param [clientSocket] the client socket
      * @param [block] the block of code to execute
      */
-    fun withSession(clientSocket: Socket, block: (SafeSessionInfoForBroadcastServer) -> Unit) {
-        lateinit var session: SafeSessionInfoForBroadcastServer
-        try {
-            session = createSession(clientSocket)
-            block(session)
+    fun withSession(clientSocket: Socket, session: SafeSessionInfoForBroadcastServer, block: () -> Unit) {
+        clientSocket.use {
+            try {
+                block()
+            } finally {
+                endSession(session)
+            }
         }
-        finally {
-            endSession(session)
-        }
-
     }
 }
 
