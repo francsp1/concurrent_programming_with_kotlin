@@ -4,6 +4,7 @@ import concurrentprogramming.datastructures.BoundedStream
 import concurrentprogramming.threadscope.ThreadScope
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import java.lang.Thread.sleep
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
@@ -52,26 +53,14 @@ private fun handleClient(clientSocket: Socket) {
 
     val manager = SocketSessionManager(clientSocket, session, serverInfo, buffer, logger)
     manager.start()
+
     /*
-    val clientScope = threadScope.newChildScope("Client-${serverInfo.totalClients}")
-    if (clientScope == null) {
-        logger.info("Failed to create a new child scope for client ${clientSocket.remoteSocketAddress}.")
-        serverInfo.endSession(session)
-        clientSocket.close()
-        return
-    }
+    logger.info("Main thread sleeping")
+    sleep(10000)
+    logger.info("Main thread finished sleeping")
+    clientSocket.close()
 
-    val writer = clientScope.startThread("writer") { writerThreadTask(clientSocket, session) }
-    val reader = clientScope.startThread("reader") { readerThreadTask(clientSocket, session) }
-
-    if (writer == null || reader == null) {
-        logger.info("Failed to start one of the threads for Client-${serverInfo.totalClients} (${clientSocket.remoteSocketAddress})")
-        clientScope.cancel()
-        serverInfo.endSession(session)
-        clientSocket.close()
-        return
-    }
-    */
+     */
 
 
 }
@@ -81,3 +70,24 @@ private fun debugSessions() {
         logger.info("Session[$id]: ${s.remoteAddress}")
     }
 }
+
+/*
+val clientScope = threadScope.newChildScope("Client-${serverInfo.totalClients}")
+if (clientScope == null) {
+    logger.info("Failed to create a new child scope for client ${clientSocket.remoteSocketAddress}.")
+    serverInfo.endSession(session)
+    clientSocket.close()
+    return
+}
+
+val writer = clientScope.startThread("writer") { writerThreadTask(clientSocket, session) }
+val reader = clientScope.startThread("reader") { readerThreadTask(clientSocket, session) }
+
+if (writer == null || reader == null) {
+    logger.info("Failed to start one of the threads for Client-${serverInfo.totalClients} (${clientSocket.remoteSocketAddress})")
+    clientScope.cancel()
+    serverInfo.endSession(session)
+    clientSocket.close()
+    return
+}
+*/

@@ -2,8 +2,11 @@ package concurrentprogramming.server.broadcasttcpserver
 
 import concurrentprogramming.datastructures.BoundedStream
 import org.slf4j.Logger
+import java.io.IOException
+import java.lang.Thread.sleep
 import java.net.Socket
 import java.util.concurrent.Phaser
+import java.util.concurrent.atomic.AtomicBoolean
 
 class SocketSessionManager(
     private val socket: Socket,
@@ -26,22 +29,24 @@ class SocketSessionManager(
     @Volatile var isClosed = false
         private set
 
+
     fun start() {
         readerThread.start()
         writerThread.start()
-
-        val test = socket.getInputStream()
-        test.read()
-
     }
 
     private fun readerThreadTask() {
         readerThreadStarted = true
+        logger.info("[Session: ${session.id}] Reader thread for ${session.remoteAddress} Started")
         try {
             phaser.arriveAndAwaitAdvance()
             ReaderWorker(reader, writer, session, serverInfo, buffer, logger).run()
+        } catch (ioe: IOException) {
+            logger.info("[Session ${session.id}] Reader thread thew an IOException: ${ioe.message}")
+        } catch (ie: InterruptedException) {
+            logger.info("[Session ${session.id}] Reader thread threw an InterruptedException: ${ie.message}")
         } catch (e: Exception) {
-            logger.info("[Session ${session.id}] Reader failed: ${e.message}")
+            logger.info("[Session ${session.id}] Reader thread threw an Exception: ${e.message}")
         } finally {
             shutdown("Reader done")
 
@@ -49,15 +54,21 @@ class SocketSessionManager(
                 writerThread.interrupt()
             }
         }
+        logger.info("[Session: ${session.id}] Reader thread for ${session.remoteAddress} terminated")
     }
 
     private fun writerThreadTask() {
         writerThreadStarted = true
+        logger.info("[Session: ${session.id}] Writer thread for ${session.remoteAddress} Started")
         try {
             phaser.arriveAndAwaitAdvance()
             WriterWorker(reader, writer, session, serverInfo, buffer, logger).run()
+        } catch (ioe: IOException) {
+            logger.info("[Session ${session.id}] Writer thread thew an IOException: ${ioe.message}")
+        } catch (ie: InterruptedException) {
+            logger.info("[Session ${session.id}] Writer thread threw an InterruptedException: ${ie.message}")
         } catch (e: Exception) {
-            logger.info("[Session ${session.id}] Writer failed: ${e.message}")
+            logger.info("[Session ${session.id}] Writer thread threw an Exception: ${e.message}")
         } finally {
             shutdown("Writer done")
 
@@ -65,6 +76,7 @@ class SocketSessionManager(
                 readerThread.interrupt()
             }
         }
+        logger.info("[Session: ${session.id}] Writer thread for ${session.remoteAddress} terminated")
     }
 
     @Synchronized
@@ -73,11 +85,6 @@ class SocketSessionManager(
         isClosed = true
         logger.info("[Session ${session.id}] Shutting down: $reason")
         try {
-
-            reader.close()
-            writer.close()
-            socket.shutdownOutput()
-            socket.shutdownInput()
             socket.close()
         } catch (e: Exception) {
             logger.info("[Session ${session.id}] Shutdown caught an exception: ${e.message}")

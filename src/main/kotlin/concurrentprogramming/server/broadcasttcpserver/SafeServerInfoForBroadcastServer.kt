@@ -37,6 +37,10 @@ class SafeSessionInfoForBroadcastServer(private val clientSocket: Socket) {
         isClosed = true
     }
 
+    fun closeClientSocket() {
+        clientSocket.close()
+    }
+
 }
 
 /**
@@ -69,8 +73,7 @@ data class SafeStatsForBroadcastServer(
  * @property [totalClients] the total number of clients ever connected (for outside access)
  * @property [totalMessages] the total number of messages ever received (Excluding "stats" and "exit") (for outside access)
  */
-class SafeServerInfoForBroadcastServer {
-
+class SafeServerInfoForBroadcastServer() {
     val sessions = ConcurrentHashMap<SocketAddress, SafeSessionInfoForBroadcastServer>()
     private val _totalClients = AtomicLong(0)
     private val _totalMessages = AtomicLong(0)

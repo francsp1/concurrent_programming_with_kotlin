@@ -18,10 +18,8 @@ class ReaderWorker(
     private val logger: Logger
 ) {
     fun run() {
-        logger.info("[Session: ${session.id}] Reader thread for ${session.remoteAddress} Started")
         writer.writeLine("Hello ${session.remoteAddress}! Please type something and press Enter:")
         receiveAndEnqueueMessages(reader, writer, session)
-        logger.info("[Session: ${session.id}] Reader thread for ${session.remoteAddress} terminated")
     }
 
     private fun receiveAndEnqueueMessages(
@@ -42,9 +40,7 @@ class ReaderWorker(
             }
             */
 
-            println("Test1")
             val rawLine = reader.readLine()
-            println("Test2")
             if (rawLine == null) {
                 logger.info("[Session ${session.id}] Client ${session.remoteAddress} disconnected.")
                 break
