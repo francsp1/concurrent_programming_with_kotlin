@@ -1,4 +1,4 @@
-package concurrentprogramming.server.broadcasttcpserverv2
+package concurrentprogramming.server.broadcasttcpserver
 
 import concurrentprogramming.datastructures.BoundedStream
 import concurrentprogramming.server.writeLine
@@ -18,10 +18,10 @@ class ReaderWorker(
     private val logger: Logger
 ) {
     fun run() {
-        logger.info("[Session: ${session.id}] Reader thread for ${session.remoteSocketAddress} Started")
-        writer.writeLine("Hello ${session.remoteSocketAddress}! Please type something and press Enter:")
+        logger.info("[Session: ${session.id}] Reader thread for ${session.remoteAddress} Started")
+        writer.writeLine("Hello ${session.remoteAddress}! Please type something and press Enter:")
         receiveAndEnqueueMessages(reader, writer, session)
-        logger.info("[Session: ${session.id}] Reader thread for ${session.remoteSocketAddress} terminated")
+        logger.info("[Session: ${session.id}] Reader thread for ${session.remoteAddress} terminated")
     }
 
     private fun receiveAndEnqueueMessages(
@@ -42,29 +42,31 @@ class ReaderWorker(
             }
             */
 
+            println("Test1")
             val rawLine = reader.readLine()
+            println("Test2")
             if (rawLine == null) {
-                logger.info("[Session ${session.id}] Client ${session.remoteSocketAddress} disconnected.")
+                logger.info("[Session ${session.id}] Client ${session.remoteAddress} disconnected.")
                 break
             }
             val normalized = rawLine.trim().lowercase()
 
             when (normalized) {
                 EXIT -> {
-                    logger.info("[Session ${session.id}] Client ${session.remoteSocketAddress} sent \"exit\".")
+                    logger.info("[Session ${session.id}] Client ${session.remoteAddress} sent \"exit\".")
                     writer.writeLine("Exiting...")
                     break
                 }
 
                 STATS -> {
-                    logger.info("[Session: ${session.id}] Client ${session.remoteSocketAddress} requested stats.")
+                    logger.info("[Session: ${session.id}] Client ${session.remoteAddress} requested stats.")
                     writer.writeLine("Session stats: ${serverInfo.getStats()}")
                     continue
                 }
             }
             serverInfo.incrementMessageCount(session)
-            buffer.write(BroadcastMessage(session.id, session.remoteSocketAddress, normalized))
-            logger.info("[Session: ${session.id}] Received message from session from ${session.remoteSocketAddress}: $rawLine and added to buffer")
+            buffer.write(BroadcastMessage(session.id, session.remoteAddress, normalized))
+            logger.info("[Session: ${session.id}] Received message from session from ${session.remoteAddress}: $rawLine and added to buffer")
         }
     }
 

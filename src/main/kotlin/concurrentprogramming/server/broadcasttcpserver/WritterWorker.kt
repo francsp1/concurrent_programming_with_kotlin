@@ -1,4 +1,4 @@
-package concurrentprogramming.server.broadcasttcpserverv2
+package concurrentprogramming.server.broadcasttcpserver
 
 import concurrentprogramming.datastructures.BoundedStream
 import concurrentprogramming.server.writeLine
@@ -8,7 +8,7 @@ import java.io.BufferedWriter
 
 import kotlin.time.Duration.Companion.seconds
 
-private const val TIMEOUT_SECONDS: Int = 5
+private const val TIMEOUT_SECONDS: Int = 3
 
 class WriterWorker(
     private val reader: BufferedReader,
@@ -19,9 +19,9 @@ class WriterWorker(
     private val logger: Logger
 ) {
     fun run() {
-        logger.info("[Session: ${session.id}] Writer thread for ${session.remoteSocketAddress} Started")
+        logger.info("[Session: ${session.id}] Writer thread for ${session.remoteAddress} Started")
         dequeueAndSendMessages(writer, session)
-        logger.info("[Session: ${session.id}] Writer thread for ${session.remoteSocketAddress} terminated")
+        logger.info("[Session: ${session.id}] Writer thread for ${session.remoteAddress} terminated")
     }
 
     private fun dequeueAndSendMessages(
@@ -32,7 +32,7 @@ class WriterWorker(
 
         while (true) {
             if (session.isClosed()) {
-                logger.info("[Session ${session.id}] Client ${session.remoteSocketAddress} was session marked as closed. Terminating writer.")
+                logger.info("[Session ${session.id}] Client ${session.remoteAddress} was session marked as closed. Terminating writer.")
                 break
             }
 
@@ -46,14 +46,14 @@ class WriterWorker(
             val readResult = try {
                 buffer.read(currentIndex, TIMEOUT_SECONDS.seconds)
             } catch (ie: InterruptedException) {
-                logger.info("[Session ${session.id}] Client ${session.remoteSocketAddress} had is writer thread interrupted. Terminating writer.")
+                logger.info("[Session ${session.id}] Client ${session.remoteAddress} had is writer thread interrupted. Terminating writer.")
                 throw ie
             }
 
             when (readResult) {
                 is BoundedStream.ReadResult.Success -> {
                     if (readResult.items.isEmpty()) {
-                        logger.info("[Session ${session.id}] Client ${session.remoteSocketAddress} had no new messages. currentIndex=$currentIndex")
+                        logger.info("[Session ${session.id}] Client ${session.remoteAddress} had no new messages. currentIndex=$currentIndex")
                         currentIndex = buffer.getLogicalTail()
                         continue
                     }
@@ -61,25 +61,25 @@ class WriterWorker(
                     for (msg in readResult.items) {
                         val line = "${msg.senderId} wrote: ${msg.message}"
                         writer.writeLine(line)
-                        logger.info("[Session ${session.id}] Client ${session.remoteSocketAddress} sent a message to ${msg.clientRemoteSocketAddress} (${msg.message}) -> $line")
+                        logger.info("[Session ${session.id}] Client ${session.remoteAddress} sent a message to ${msg.clientAddress} (${msg.message}) -> $line")
                     }
 
                     currentIndex += readResult.items.size
                 }
 
                 is BoundedStream.ReadResult.Timeout -> {
-                    logger.info("[Session ${session.id}] Client ${session.remoteSocketAddress} will be disconnected due to inactivity (Read messages timeout is $TIMEOUT_SECONDS seconds).")
+                    logger.info("[Session ${session.id}] Client ${session.remoteAddress} will be disconnected due to inactivity (Read messages timeout is $TIMEOUT_SECONDS seconds).")
                     writer.writeLine("You have been disconnected due to inactivity. No new messages received in $TIMEOUT_SECONDS seconds.")
                     break
                 }
 
                 is BoundedStream.ReadResult.Closed -> {
-                    logger.info("[Session ${session.id}] Client ${session.remoteSocketAddress} found the stream closed. Terminating writer.")
+                    logger.info("[Session ${session.id}] Client ${session.remoteAddress} found the stream closed. Terminating writer.")
                     break
                 }
 
                 is BoundedStream.ReadResult.IndexOverwritten -> {
-                    logger.info("[Session ${session.id}] Client ${session.remoteSocketAddress} tried to read from an overwritten index. currentIndex=$currentIndex")
+                    logger.info("[Session ${session.id}] Client ${session.remoteAddress} tried to read from an overwritten index. currentIndex=$currentIndex")
                     currentIndex = buffer.getLogicalTail()
                     continue
                 }

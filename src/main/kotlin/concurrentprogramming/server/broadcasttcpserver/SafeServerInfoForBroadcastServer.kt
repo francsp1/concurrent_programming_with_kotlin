@@ -1,4 +1,4 @@
-package concurrentprogramming.server.broadcasttcpserverv1
+package concurrentprogramming.server.broadcasttcpserver
 
 import java.net.Socket
 import java.net.SocketAddress
@@ -9,15 +9,17 @@ import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Represents the session information.
- * @property [remoteSocketAddress] the remote socket address
+ * @property [remoteAddress] the remote socket address
  * @property [messageCount] the number of messages received
  */
 class SafeSessionInfoForBroadcastServer(private val clientSocket: Socket) {
     @Volatile private var isClosed = false
 
-    val id: UUID = UUID.randomUUID()
+    private val _id: UUID = UUID.randomUUID()
+    val id = _id.toString()
 
-    val remoteSocketAddress = clientSocket.remoteSocketAddress
+    internal val remoteSocketAddress = clientSocket.remoteSocketAddress
+    val remoteAddress = remoteSocketAddress.toString()
 
     private val _messageCount = AtomicInteger(0)
     val messageCount: Int
