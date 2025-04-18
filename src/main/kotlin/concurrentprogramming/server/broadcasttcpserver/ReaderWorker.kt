@@ -61,7 +61,7 @@ class ReaderWorker(
                 }
             }
             serverInfo.incrementMessageCount(session)
-            buffer.write(BroadcastMessage(session.id, session.remoteAddress, normalized))
+            buffer.write(BroadcastMessage(session.id, session.remoteAddress, rawLine))
             logger.info("[Session: ${session.id}] Received message from session from ${session.remoteAddress}: $rawLine and added to buffer")
         }
     }

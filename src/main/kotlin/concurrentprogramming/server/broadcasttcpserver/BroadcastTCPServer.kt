@@ -1,6 +1,7 @@
 package concurrentprogramming.server.broadcasttcpserver
 
 import concurrentprogramming.datastructures.BoundedStream
+import concurrentprogramming.server.writeLine
 import concurrentprogramming.threadscope.ThreadScope
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -8,6 +9,7 @@ import java.lang.Thread.sleep
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
+import java.util.concurrent.Semaphore
 
 private val logger: Logger = LoggerFactory.getLogger("BroadcastTCPServer")
 private const val PORT = 9090
@@ -20,6 +22,9 @@ private val serverInfo = SafeServerInfoForBroadcastServer()
 private val buffer = BoundedStream<BroadcastMessage>(MAX_MESSAGES)
 
 private val threadScope = ThreadScope("ServerScope", Thread.ofPlatform())
+
+private val maxConcurrentClients = 2
+private val sessionPermitSemaphore = Semaphore(maxConcurrentClients)
 
 
 fun main() {
@@ -34,10 +39,31 @@ fun main() {
 private fun runServer() {
     ServerSocket().use { serverSocket ->
         serverSocket.bind(InetSocketAddress("0.0.0.0", PORT))
-        while (true) {
-            logger.info("Waiting for clients to connect...")
+        serverLoop(serverSocket)
+    }
+}
+
+private fun serverLoop(serverSocket: ServerSocket) {
+    while (true) {
+        logger.info("Waiting for new clients to connect...")
+
+        try {
             val clientSocket = serverSocket.accept()
+
+            val permitAcquired = sessionPermitSemaphore.tryAcquire()
+            if (!permitAcquired) {
+                logger.info("Client rejected: ${clientSocket.remoteSocketAddress} - too many clients connected")
+                clientSocket.getOutputStream().bufferedWriter().use { writer ->
+                    writer.writeLine("Server is busy. Maximum number of clients reached. Try again later.")
+                }
+                clientSocket.close()
+                continue
+            }
+
             handleClient(clientSocket)
+        } catch (e: Exception) {
+            logger.error("Error while accepting new client connection: ${e.message}")
+            continue
         }
     }
 }
@@ -47,22 +73,10 @@ private fun runServer() {
  * @param [clientSocket] the client socket
  */
 private fun handleClient(clientSocket: Socket) {
-
-    val session = serverInfo.createSession(clientSocket)
-    logger.info("[Session: ${session.id} Client ${session.remoteAddress} connected] and new session created")
-
-    val manager = SocketSessionManager(clientSocket, session, serverInfo, buffer, logger)
-    manager.start()
-
-    /*
-    logger.info("Main thread sleeping")
-    sleep(10000)
-    logger.info("Main thread finished sleeping")
-    clientSocket.close()
-
-     */
-
-
+    //val session = serverInfo.createSession(clientSocket)
+    //logger.info("[Session: ${session.id} Client ${session.remoteAddress} connected] and new session created")
+    SocketSessionManager(clientSocket, sessionPermitSemaphore, serverInfo, buffer, logger)
+        .start()
 }
 
 private fun debugSessions() {

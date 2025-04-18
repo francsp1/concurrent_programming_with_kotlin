@@ -8,7 +8,7 @@ import java.io.BufferedWriter
 
 import kotlin.time.Duration.Companion.seconds
 
-private const val TIMEOUT_SECONDS: Int = 5
+private const val TIMEOUT_SECONDS: Int = 30
 
 class WriterWorker(
     private val reader: BufferedReader,
@@ -45,7 +45,6 @@ class WriterWorker(
                 buffer.read(currentIndex, TIMEOUT_SECONDS.seconds)
             } catch (ie: InterruptedException) {
                 logger.info("[Session ${session.id}] Client ${session.remoteAddress} had is writer thread interrupted. Terminating writer.")
-                session.closeClientSocket()
                 throw ie
             }
 

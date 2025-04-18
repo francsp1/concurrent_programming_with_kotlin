@@ -86,7 +86,7 @@ class BoundedStream<T>(private val capacity: Int) : Closeable {
                         // The requested index is now available
                         val items = peakAvailableItems(startIndex)
                         requests.remove(myRequest)
-                        return ReadResult.Success(items, startIndex, )
+                        return ReadResult.Success(items, startIndex)
                     }
 
                     if (remainingTime <= 0) {
@@ -152,7 +152,7 @@ class BoundedStream<T>(private val capacity: Int) : Closeable {
             // Index of the first read item
             val startIndex: Long,
             // Index of the last read item
-            val endIndex: Long = startIndex + items.size - 1
+            //val endIndex: Long = startIndex + items.size - 1
         ): ReadResult<T>
     }
 }

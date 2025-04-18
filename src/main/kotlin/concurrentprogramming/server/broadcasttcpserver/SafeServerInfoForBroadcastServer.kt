@@ -21,8 +21,8 @@ class SafeSessionInfoForBroadcastServer(private val clientSocket: Socket) {
     internal val remoteSocketAddress = clientSocket.remoteSocketAddress
     val remoteAddress = remoteSocketAddress.toString()
 
-    private val _messageCount = AtomicInteger(0)
-    val messageCount: Int
+    private val _messageCount = AtomicLong(0)
+    val messageCount: Long
         get() = _messageCount.get()
 
     fun incrementMessageCount() {
@@ -127,21 +127,6 @@ class SafeServerInfoForBroadcastServer() {
             sessions = sessions.values.toList(),
             totalMessages = _totalMessages.get()
         ).toString()
-
-    /**
-     * Executes the given [block] within the context of a [session].
-     * @param [session] the session to use
-     * @param [clientSocket] the client socket
-     * @param [block] the block of code to execute
-     */
-    fun withSession(clientSocket: Socket, session: SafeSessionInfoForBroadcastServer, block: () -> Unit) {
-        clientSocket.use {
-            try {
-                block()
-            } finally {
-                endSession(session)
-            }
-        }
-    }
+    
 }
 

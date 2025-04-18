@@ -3,20 +3,22 @@ package concurrentprogramming.server.broadcasttcpserver
 import concurrentprogramming.datastructures.BoundedStream
 import org.slf4j.Logger
 import java.io.IOException
-import java.lang.Thread.sleep
 import java.net.Socket
 import java.util.concurrent.Phaser
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.Semaphore
 
 class SocketSessionManager(
-    private val socket: Socket,
-    private val session: SafeSessionInfoForBroadcastServer,
+    private val clientSocket: Socket,
+    private val permit: Semaphore,
+    //private val session: SafeSessionInfoForBroadcastServer,
     private val serverInfo: SafeServerInfoForBroadcastServer,
     private val buffer: BoundedStream<BroadcastMessage>,
     private val logger: Logger
 ) {
-    private val reader = socket.getInputStream().bufferedReader()
-    private val writer = socket.getOutputStream().bufferedWriter()
+    private val session = serverInfo.createSession(clientSocket)
+
+    private val reader = clientSocket.getInputStream().bufferedReader()
+    private val writer = clientSocket.getOutputStream().bufferedWriter()
 
     private val readerThread = Thread.ofPlatform().name("reader-${serverInfo.totalClients}-${session.id}").unstarted { readerThreadTask() }
     @Volatile private var readerThreadStarted = false
@@ -31,6 +33,7 @@ class SocketSessionManager(
 
 
     fun start() {
+        logger.info("[Session: ${session.id} Client ${session.remoteAddress} connected] and new session created. Initializing threads...")
         readerThread.start()
         writerThread.start()
     }
@@ -49,7 +52,6 @@ class SocketSessionManager(
             logger.info("[Session ${session.id}] Reader thread threw an Exception: ${e.message}")
         } finally {
             shutdown("Reader done")
-
             if (writerThread.isAlive) {
                 writerThread.interrupt()
             }
@@ -71,7 +73,6 @@ class SocketSessionManager(
             logger.info("[Session ${session.id}] Writer thread threw an Exception: ${e.message}")
         } finally {
             shutdown("Writer done")
-
             if (readerThread.isAlive) {
                 readerThread.interrupt()
             }
@@ -85,11 +86,12 @@ class SocketSessionManager(
         isClosed = true
         logger.info("[Session ${session.id}] Shutting down: $reason")
         try {
-            socket.close()
+            clientSocket.close()
         } catch (e: Exception) {
             logger.info("[Session ${session.id}] Shutdown caught an exception: ${e.message}")
         } finally {
             serverInfo.endSession(session)
+            permit.release()
         }
     }
 }
