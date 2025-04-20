@@ -11,20 +11,20 @@ import java.net.ServerSocket
 import java.net.Socket
 import java.util.concurrent.Semaphore
 
-private val logger: Logger = LoggerFactory.getLogger("BroadcastTCPServer")
 private const val PORT = 9090
-private const val MAX_MESSAGES = 100
 
+private val logger: Logger = LoggerFactory.getLogger("BroadcastTCPServer")
+
+private const val MAX_MESSAGES = 50
+private val buffer = BoundedStream<BroadcastMessage>(MAX_MESSAGES)
 data class BroadcastMessage(val senderId: String, val clientAddress: String, val message: String)
 
 private val serverInfo = SafeServerInfoForBroadcastServer()
 
-private val buffer = BoundedStream<BroadcastMessage>(MAX_MESSAGES)
-
 private val threadScope = ThreadScope("ServerScope", Thread.ofPlatform())
 
-private val maxConcurrentClients = 2
-private val sessionPermitSemaphore = Semaphore(maxConcurrentClients)
+private const val MAX_CONCURRENT_CLIENTS = 100
+private val sessionPermitSemaphore = Semaphore(MAX_CONCURRENT_CLIENTS)
 
 
 fun main() {

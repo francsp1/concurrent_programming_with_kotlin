@@ -10,7 +10,6 @@ import java.util.concurrent.Semaphore
 class SocketSessionManager(
     private val clientSocket: Socket,
     private val permit: Semaphore,
-    //private val session: SafeSessionInfoForBroadcastServer,
     private val serverInfo: SafeServerInfoForBroadcastServer,
     private val buffer: BoundedStream<BroadcastMessage>,
     private val logger: Logger
@@ -20,17 +19,17 @@ class SocketSessionManager(
     private val reader = clientSocket.getInputStream().bufferedReader()
     private val writer = clientSocket.getOutputStream().bufferedWriter()
 
-    private val readerThread = Thread.ofPlatform().name("reader-${serverInfo.totalClients}-${session.id}").unstarted { readerThreadTask() }
+    private val readerThread = Thread.ofPlatform().name("reader-${serverInfo.totalClients}-${session.id}")
+        .unstarted { readerThreadTask() }
     @Volatile private var readerThreadStarted = false
 
-    private val writerThread = Thread.ofPlatform().name("writer-${serverInfo.totalClients}-${session.id}").unstarted { writerThreadTask() }
+    private val writerThread = Thread.ofPlatform().name("writer-${serverInfo.totalClients}-${session.id}")
+        .unstarted { writerThreadTask() }
     @Volatile private var writerThreadStarted = false
 
     private val phaser = Phaser(2)
 
-    @Volatile var isClosed = false
-        private set
-
+    @Volatile private var isClosed = false
 
     fun start() {
         logger.info("[Session: ${session.id} Client ${session.remoteAddress} connected] and new session created. Initializing threads...")

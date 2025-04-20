@@ -57,6 +57,9 @@ class WriterWorker(
                     }
 
                     for (msg in readResult.items) {
+                        if (readResult.items.size > 1) {
+                            logger.info("Items size: ${readResult.items.size} AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+                        }
                         val line = "${msg.senderId} wrote: ${msg.message}"
                         writer.writeLine(line)
                         logger.info("[Session ${session.id}] Client ${session.remoteAddress} sent a message to ${msg.clientAddress} (${msg.message}) -> $line")
