@@ -73,7 +73,7 @@ private fun serverLoop(serverSocket: ServerSocket) {
  * @param [clientSocket] the client socket
  */
 private fun handleClient(clientSocket: Socket) {
-  SocketSessionManager(clientSocket).start()
+  SocketAndSessionManager(clientSocket).start()
 }
 
 private fun debugSessions() {
@@ -85,20 +85,20 @@ private fun debugSessions() {
 /*
 val clientScope = threadScope.newChildScope("Client-${serverInfo.totalClients}")
 if (clientScope == null) {
-    logger.info("Failed to create a new child scope for client ${clientSocket.remoteSocketAddress}.")
-    serverInfo.endSession(session)
-    clientSocket.close()
-    return
+  logger.info("Failed to create a new child scope for client ${clientSocket.remoteSocketAddress}.")
+  serverInfo.endSession(session)
+  clientSocket.close()
+  return
 }
 
 val writer = clientScope.startThread("writer") { writerThreadTask(clientSocket, session) }
 val reader = clientScope.startThread("reader") { readerThreadTask(clientSocket, session) }
 
 if (writer == null || reader == null) {
-    logger.info("Failed to start one of the threads for Client-${serverInfo.totalClients} (${clientSocket.remoteSocketAddress})")
-    clientScope.cancel()
-    serverInfo.endSession(session)
-    clientSocket.close()
-    return
+  logger.info("Failed to start one of the threads for Client-${serverInfo.totalClients} (${clientSocket.remoteSocketAddress})")
+  clientScope.cancel()
+  serverInfo.endSession(session)
+  clientSocket.close()
+  return
 }
 */

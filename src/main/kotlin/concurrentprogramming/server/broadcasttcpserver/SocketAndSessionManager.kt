@@ -7,16 +7,18 @@ import java.io.IOException
 import java.net.Socket
 import java.util.concurrent.Phaser
 
-class SocketSessionManager(
+class SocketAndSessionManager(
   private val clientSocket: Socket,
 ) {
   private val session = serverInfo.createSession(clientSocket)
 
   private val readerThread =
-    Thread.ofPlatform().name("reader-${serverInfo.totalClients}-${session.id}").unstarted { readerThreadTask() }
+    Thread.ofPlatform().name("reader-${serverInfo.totalClients}-${session.id}")
+      .unstarted { readerThreadTask() }
 
   private val writerThread =
-    Thread.ofPlatform().name("writer-${serverInfo.totalClients}-${session.id}").unstarted { writerThreadTask() }
+    Thread.ofPlatform().name("writer-${serverInfo.totalClients}-${session.id}")
+      .unstarted { writerThreadTask() }
 
   private val phaser = Phaser(2)
 
