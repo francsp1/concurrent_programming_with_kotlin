@@ -1,71 +1,71 @@
 package concurrentprogramming.server.broadcasttcpserver
 
 import concurrentprogramming.datastructures.BoundedStream
+import concurrentprogramming.server.broadcasttcpserver.ServerContext.logger
+import concurrentprogramming.server.broadcasttcpserver.ServerContext.serverInfo
+import concurrentprogramming.server.broadcasttcpserver.ServerContext.sessionPermitSemaphore
 import concurrentprogramming.server.writeLine
 import concurrentprogramming.threadscope.ThreadScope
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import java.lang.Thread.sleep
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.util.concurrent.Semaphore
 
 private const val PORT = 9090
-
-private val logger: Logger = LoggerFactory.getLogger("BroadcastTCPServer")
-
 private const val MAX_MESSAGES = 50
-private val buffer = BoundedStream<BroadcastMessage>(MAX_MESSAGES)
+private const val MAX_CONCURRENT_CLIENTS = 100
+
 data class BroadcastMessage(val senderId: String, val clientAddress: String, val message: String)
 
-private val serverInfo = SafeServerInfoForBroadcastServer()
-
-private val threadScope = ThreadScope("ServerScope", Thread.ofPlatform())
-
-private const val MAX_CONCURRENT_CLIENTS = 100
-private val sessionPermitSemaphore = Semaphore(MAX_CONCURRENT_CLIENTS)
-
+object ServerContext {
+  val logger: Logger = LoggerFactory.getLogger("BroadcastTCPServer")
+  val buffer = BoundedStream<BroadcastMessage>(MAX_MESSAGES)
+  val serverInfo = SafeServerInfoForBroadcastServer()
+  val threadScope = ThreadScope("ServerScope", Thread.ofPlatform())
+  val sessionPermitSemaphore = Semaphore(MAX_CONCURRENT_CLIENTS)
+}
 
 fun main() {
-    logger.info("Starting  server on port $PORT")
-    runServer()
-    logger.info("Server stopped")
+  logger.info("Starting  server on port $PORT")
+  runServer()
+  logger.info("Server stopped")
 }
 
 /**
  * The echo server loop.
  */
 private fun runServer() {
-    ServerSocket().use { serverSocket ->
-        serverSocket.bind(InetSocketAddress("0.0.0.0", PORT))
-        serverLoop(serverSocket)
-    }
+  ServerSocket().use { serverSocket ->
+    serverSocket.bind(InetSocketAddress("0.0.0.0", PORT))
+    serverLoop(serverSocket)
+  }
 }
 
 private fun serverLoop(serverSocket: ServerSocket) {
-    while (true) {
-        logger.info("Waiting for new clients to connect...")
+  while (true) {
+    logger.info("Waiting for new clients to connect...")
 
-        try {
-            val clientSocket = serverSocket.accept()
+    try {
+      val clientSocket = serverSocket.accept()
 
-            val permitAcquired = sessionPermitSemaphore.tryAcquire()
-            if (!permitAcquired) {
-                logger.info("Client rejected: ${clientSocket.remoteSocketAddress} - too many clients connected")
-                clientSocket.getOutputStream().bufferedWriter().use { writer ->
-                    writer.writeLine("Server is busy. Maximum number of clients reached. Try again later.")
-                }
-                clientSocket.close()
-                continue
-            }
-
-            handleClient(clientSocket)
-        } catch (e: Exception) {
-            logger.error("Error while accepting new client connection: ${e.message}")
-            continue
+      val permitAcquired = sessionPermitSemaphore.tryAcquire()
+      if (!permitAcquired) {
+        logger.info("Client rejected: ${clientSocket.remoteSocketAddress} - too many clients connected")
+        clientSocket.getOutputStream().bufferedWriter().use { writer ->
+          writer.writeLine("Server is busy. Maximum number of clients reached. Try again later.")
         }
+        clientSocket.close()
+        continue
+      }
+
+      handleClient(clientSocket)
+    } catch (e: Exception) {
+      logger.error("Error while accepting new client connection: ${e.message}")
+      continue
     }
+  }
 }
 
 /**
@@ -73,16 +73,13 @@ private fun serverLoop(serverSocket: ServerSocket) {
  * @param [clientSocket] the client socket
  */
 private fun handleClient(clientSocket: Socket) {
-    //val session = serverInfo.createSession(clientSocket)
-    //logger.info("[Session: ${session.id} Client ${session.remoteAddress} connected] and new session created")
-    SocketSessionManager(clientSocket, sessionPermitSemaphore, serverInfo, buffer, logger)
-        .start()
+  SocketSessionManager(clientSocket).start()
 }
 
 private fun debugSessions() {
-    serverInfo.sessions.forEach { (id, s) ->
-        logger.info("Session[$id]: ${s.remoteAddress}")
-    }
+  serverInfo.sessions.forEach { (id, s) ->
+    logger.info("Session[$id]: ${s.remoteAddress}")
+  }
 }
 
 /*
