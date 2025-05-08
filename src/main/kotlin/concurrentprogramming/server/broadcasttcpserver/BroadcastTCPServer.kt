@@ -23,7 +23,7 @@ object ServerContext {
   val logger: Logger = LoggerFactory.getLogger("BroadcastTCPServer")
   val buffer = BoundedStream<BroadcastMessage>(MAX_MESSAGES)
   val serverInfo = SafeServerInfoForBroadcastServer()
-  val threadScope = ThreadScope("ServerScope", Thread.ofPlatform())
+  val threadScope = ThreadScope("BroadcastTCPServer", Thread.ofPlatform())
   val sessionPermitSemaphore = Semaphore(MAX_CONCURRENT_CLIENTS)
 }
 
@@ -73,7 +73,7 @@ private fun serverLoop(serverSocket: ServerSocket) {
  * @param [clientSocket] the client socket
  */
 private fun handleClient(clientSocket: Socket) {
-  SocketAndSessionManager1(clientSocket).start()
+  SocketAndSessionManager2(clientSocket).start()
 }
 
 private fun debugSessions() {

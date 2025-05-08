@@ -12,15 +12,15 @@ class SocketAndSessionManager2(
 ) {
   private val session = serverInfo.createSession(clientSocket)
 
-  private val childScope = ServerContext.threadScope.newChildScope("client-scope-${serverInfo.totalClients}-${session.id}")
+  private val childScope = ServerContext.threadScope.newChildScope("client-${serverInfo.totalClients}")
 
   @Volatile
   private var isClosed = false
 
   fun start() {
     logger.info("[Session: ${session.id} Client ${session.remoteAddress} connected] and new session created. Initializing threads...")
-    childScope?.startThread("reader-${serverInfo.totalClients}-${session.id}") { readerThreadTask() }
-    childScope?.startThread("writer-${serverInfo.totalClients}-${session.id}") { writerThreadTask() }
+    childScope?.startThread("reader") { readerThreadTask() }
+    childScope?.startThread("writer") { writerThreadTask() }
 
   }
 

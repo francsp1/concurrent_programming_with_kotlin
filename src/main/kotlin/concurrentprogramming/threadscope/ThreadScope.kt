@@ -17,100 +17,100 @@ import kotlin.time.Duration.Companion.milliseconds
  * • join - waits for a scope to be completed, which is defined by all started threads being terminated and all child scopes being completed.
  */
 class ThreadScope(
-    private val scopeName: String,
-    private val builder: Thread.Builder
+  private val scopeName: String,
+  private val builder: Thread.Builder
 ) : Closeable {
 
-    private val guard = ReentrantLock()
-    private val threads = mutableListOf<Thread>()
-    private val childScopes = mutableListOf<ThreadScope>()
-    private var isClosed = false
+  private val guard = ReentrantLock()
+  private val threads = mutableListOf<Thread>()
+  private val childScopes = mutableListOf<ThreadScope>()
+  private var isClosed = false
 
-    // Creates a new thread in the scope, if the scope is not closed.
-    fun startThread(threadName: String, runnable: Runnable): Thread? {
-        guard.withLock {
-            // Ensure scope is not closed
-            if (isClosed) return null
+  // Creates a new thread in the scope, if the scope is not closed.
+  fun startThread(threadName: String, runnable: Runnable): Thread? {
+    guard.withLock {
+      // Ensure scope is not closed
+      if (isClosed) return null
 
-            return try {
-                val thread = builder.name("$scopeName-$threadName").start(runnable)
-                threads.add(thread)  // Add to the thread list
-                thread  // Return the thread
-            } catch (e: Exception) {
-                //println("Failed to start thread: ${e.message}")
-                null
-            }
-        }
+      return try {
+        val thread = builder.name("$scopeName-$threadName").start(runnable)
+        threads.add(thread)  // Add to the thread list
+        thread  // Return the thread
+      } catch (e: Exception) {
+        //println("Failed to start thread: ${e.message}")
+        null
+      }
     }
+  }
 
-    // Creates a new child scope, if the current scope is not closed.
-    fun newChildScope(name: String): ThreadScope? {
-        guard.withLock {
-            if (isClosed) return null
+  // Creates a new child scope, if the current scope is not closed.
+  fun newChildScope(name: String): ThreadScope? {
+    guard.withLock {
+      if (isClosed) return null
 
-            val childScope = ThreadScope(scopeName = "$scopeName-$name", builder = builder)
-            childScopes.add(childScope)
-            return childScope
-        }
+      val childScope = ThreadScope(scopeName = "$scopeName-$name", builder = builder)
+      childScopes.add(childScope)
+      return childScope
     }
+  }
 
-    // Closes the current scope, disallowing the creation of any further thread or child scope.
-    override fun close() {
-        guard.withLock {
-            if (isClosed) return  // Ensure idempotency
-            isClosed = true
+  // Closes the current scope, disallowing the creation of any further thread or child scope.
+  override fun close() {
+    guard.withLock {
+      if (isClosed) return  // Ensure idempotency
+      isClosed = true
 
-            // Close all child scopes
-            childScopes.forEach { it.close() }
-            childScopes.clear()
-        }
+      // Close all child scopes
+      childScopes.forEach { it.close() }
+      childScopes.clear()
     }
+  }
 
-    // Interrupts all threads in the scope and cancels all child scopes.
-    fun cancel() {
-        guard.withLock {
-            if (isClosed) return  // Ensure idempotency
-            isClosed = true
+  // Interrupts all threads in the scope and cancels all child scopes.
+  fun cancel() {
+    guard.withLock {
+      if (isClosed) return  // Ensure idempotency
+      isClosed = true
 
-            // Interrupt all threads
-            threads.forEach { it.interrupt() }
-            threads.clear()
+      // Interrupt all threads
+      threads.forEach { it.interrupt() }
+      threads.clear()
 
-            // Cancel all child scopes
-            childScopes.forEach { it.cancel() }
-            childScopes.clear()
-        }
+      // Cancel all child scopes
+      childScopes.forEach { it.cancel() }
+      childScopes.clear()
     }
+  }
 
-    // Waits until all threads and child scopes have completed
-    @Throws(InterruptedException::class)
-    fun join(timeout: Duration): Boolean {
-        guard.withLock {
-            val deadline = System.currentTimeMillis() + timeout.inWholeMilliseconds
+  // Waits until all threads and child scopes have completed
+  @Throws(InterruptedException::class)
+  fun join(timeout: Duration): Boolean {
+    guard.withLock {
+      val deadline = System.currentTimeMillis() + timeout.inWholeMilliseconds
 
-            // Wait for all threads to complete
-            for (thread in threads) {
-                val remainingTime = deadline - System.currentTimeMillis()
-                if (remainingTime <= 0) return false
-                thread.join(remainingTime)
-                if (thread.isAlive) return false
-            }
+      // Wait for all threads to complete
+      for (thread in threads) {
+        val remainingTime = deadline - System.currentTimeMillis()
+        if (remainingTime <= 0) return false
+        thread.join(remainingTime)
+        if (thread.isAlive) return false
+      }
 
-            // Wait for all child scopes to complete
-            for (childScope in childScopes) {
-                val remainingTime = deadline - System.currentTimeMillis()
-                if (remainingTime <= 0) return false
-                if (!childScope.join(timeout = remainingTime.milliseconds)) return false
-            }
+      // Wait for all child scopes to complete
+      for (childScope in childScopes) {
+        val remainingTime = deadline - System.currentTimeMillis()
+        if (remainingTime <= 0) return false
+        if (!childScope.join(timeout = remainingTime.milliseconds)) return false
+      }
 
-            return true
-        }
+      return true
     }
+  }
 
-    fun isClosed(): Boolean {
-        guard.withLock {
-            return isClosed
-        }
+  fun isClosed(): Boolean {
+    guard.withLock {
+      return isClosed
     }
+  }
 
 }
