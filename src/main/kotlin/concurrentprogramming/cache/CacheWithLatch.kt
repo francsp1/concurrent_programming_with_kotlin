@@ -1,4 +1,3 @@
-
 import concurrentprogramming.latch.Latch
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
@@ -7,7 +6,7 @@ import kotlin.concurrent.withLock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
-private class CacheWIthLatchHolder<K, V>(
+private class Holder<K, V>(
     private val transform: (K) -> V,
     private val timeout: Duration
 ) {
@@ -39,6 +38,36 @@ private class CacheWIthLatchHolder<K, V>(
         return value!!
     }
 
+    @Throws(TimeoutException::class, InterruptedException::class, Exception::class)
+    fun getValue2(key: K): V {
+        try {
+
+            if (isTransforming.compareAndSet(false, true)) {
+                Thread.sleep(3000) // Simulate long computation (TODO: remove later)
+
+                value = transform(key) // Transform might fail!
+                latch.open()
+                println("Holder.getValue: Value computed - latch opened")
+
+            }
+
+            if (!latch.await(timeout)) {
+                throw TimeoutException("Timeout reached while waiting for value computation for key: $key")
+            }
+            return value!!
+
+        } catch (ie: InterruptedException) {
+            Thread.currentThread().interrupt() // Restore the interrupt flag
+            throw ie
+        } catch (te: TimeoutException) {
+            throw te
+        } catch (e: Exception) {
+            isTransforming.set(false) // Reset only if transform failed
+            throw e
+        }
+
+    }
+
     fun isComputed(): Boolean {
         return latch.isOpen()
     }
@@ -48,7 +77,7 @@ class CacheWithLatch<K, V>(
     private val transform: (K) -> V,
     private val timeout: Duration
 ) {
-    private val cache = mutableMapOf<K, CacheWIthLatchHolder<K, V>>()
+    private val cache = mutableMapOf<K, Holder<K, V>>()
     private val guard = ReentrantLock()
 
     @Throws(TimeoutException::class, InterruptedException::class, Exception::class)
@@ -59,7 +88,7 @@ class CacheWithLatch<K, V>(
                 result
             }
             else {
-                val newHolder = CacheWIthLatchHolder(transform, timeout)
+                val newHolder = Holder(transform, timeout)
                 cache[key] = newHolder
                 newHolder
             }
