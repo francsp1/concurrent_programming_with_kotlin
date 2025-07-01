@@ -5,7 +5,6 @@ import kotlin.concurrent.withLock
 import kotlin.jvm.Throws
 import kotlin.time.Duration
 
-
 class CyclicCountdownLatchKernelStyle(private val initialCount: Int) {
     init { require(initialCount > 0) }
 
@@ -20,6 +19,11 @@ class CyclicCountdownLatchKernelStyle(private val initialCount: Int) {
     @Throws(InterruptedException::class)
     fun await(timeout: Duration): Boolean {
         guard.withLock {
+
+            if (timeout.inWholeNanoseconds == 0L) {
+                return false
+            }
+
             val myRequest = Request()
             requests.add(myRequest)
 
@@ -39,6 +43,7 @@ class CyclicCountdownLatchKernelStyle(private val initialCount: Int) {
                 }
             } catch (ie: InterruptedException) {
                 requests.remove(myRequest)
+                Thread.currentThread().interrupt()
                 throw ie
             }
         }
